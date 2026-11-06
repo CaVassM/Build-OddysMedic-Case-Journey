@@ -18,8 +18,9 @@ This is the canonical project structure. Start with task-relevant files below. O
 - `src/main.tsx` - React entrypoint; imports `src/index.css` and mounts `src/App.tsx` into the `#root` element
 - `src/App.tsx` - All screens, routing, and case data (stops, variants, candidate next cases, demo learners); the usual starting point for UI work
 - `src/engine.ts` - Adaptive Elo engine with no UI: seed competencies, probability, answer update, status, variant choice, and next-case recommendation
-- `src/portraits.ts` - Patient portraits generated locally with DiceBear (Open Peeps, CC0), with a fixed seed and look per patient
-- `src/worstCase.ts` - Extreme data, including a long patient name, used only in development with `?data=worst`
+- `src/history.ts` - Decision history: the example answers for Lucía and Marta, whose counts and final θ match the engine's seed, plus the metrics calculated from them
+- `src/portraits.ts` - Portraits generated locally with DiceBear (Open Peeps, CC0), with a fixed seed and look per person
+- `src/worstCase.ts` - Extreme data used only in development: `?data=worst` (long names and options) and `?data=empty`, `one`, or `many` (progress history)
 - `src/index.css` - Global CSS entrypoint, Tailwind CSS v4 import, and the hand-written classes for every screen
 - `index.html` - Vite HTML shell containing the font links and the `#root` element, and loading `src/main.tsx`
 - `PRODUCT.md` - Product context and the "Pendiente" list
@@ -47,7 +48,7 @@ State lives only in `sessionStorage`, so it does not carry over to a new browser
 - `elena-plan` - `{ learnerId, variantId }`. "Empezar caso" sets it and removes `elena-answers` and `elena-closed`, and it stays fixed for the rest of the case
 - `elena-answers` - One saved answer per stop
 
-Competencies are recalculated on each screen by replaying `elena-answers` over the seed, never stored, so reopening a screen can't count an answer twice. Each attempt starts again from the seed. "Reiniciar demo" calls `sessionStorage.clear()` and reloads the page.
+Competencies and the decision history, including θ after each attempt, are recalculated on each screen by replaying `elena-answers` over the seed, never stored, so reopening a screen can't count an answer twice. If you change `seedCompetencies`, update `seededDecisions` so both still agree. Each attempt starts again from the seed. "Reiniciar demo" calls `sessionStorage.clear()` and reloads the page.
 
 "No sé" counts as `r = 0` in the engine, but the interface shows it with its own neutral "?" mark, not as an error.
 

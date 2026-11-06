@@ -1,6 +1,7 @@
 import {
   Fragment,
   useEffect,
+  useId,
   useRef,
   useState,
   type CSSProperties,
@@ -17,14 +18,29 @@ import {
   type CompetencyId,
   type CompetencyState,
 } from "./engine";
+import {
+  competencyTrail,
+  seededDecisions,
+  seededSystemDecisions,
+  summarizeDecisions,
+  type Decision,
+} from "./history";
 import { portraitSrc, portraitTone, type PortraitName } from "./portraits";
-import { worstCaseLongName, worstCasePatient, worstCaseStop } from "./worstCase";
+import {
+  manySystemDecisions,
+  progressFixture,
+  worstCaseLongName,
+  worstCasePatient,
+  worstCaseStop,
+} from "./worstCase";
 
 // Solo en desarrollo y solo si la URL lo pide: una demo normal no ve ni el selector ni estos datos.
 const devDataParam = import.meta.env.DEV
   ? new URLSearchParams(window.location.search).get("data")
   : null;
 const useWorstCase = devDataParam === "worst";
+const devProgress = import.meta.env.DEV ? progressFixture(devDataParam) : null;
+const baseDecisions = devProgress ?? seededDecisions;
 
 function DevDataToggle() {
   if (!devDataParam) return null;
@@ -35,6 +51,15 @@ function DevDataToggle() {
       </a>
       <a className={useWorstCase ? "active" : ""} href="?data=worst">
         Worst case
+      </a>
+      <a className={devDataParam === "empty" ? "active" : ""} href="?data=empty">
+        0
+      </a>
+      <a className={devDataParam === "one" ? "active" : ""} href="?data=one">
+        1
+      </a>
+      <a className={devDataParam === "many" ? "active" : ""} href="?data=many">
+        Muchas
       </a>
     </div>
   );
@@ -188,7 +213,82 @@ function ButtonLink({ children, secondary = false }: { children: ReactNode; seco
   );
 }
 
-function LoggedTopbar({ current = "inicio" }: { current?: "inicio" | "progreso" }) {
+function resetDemo() {
+  sessionStorage.clear();
+  window.location.reload();
+}
+
+// Menú desplegable, no un role="menu": sus enlaces y botones se recorren con Tab y Escape lo cierra.
+function AccountMenu({ compact = false }: { compact?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: MouseEvent) => {
+      if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: { key: string }) => {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+    document.addEventListener("mousedown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div
+      className="account"
+      onBlur={(event) => {
+        const next = event.relatedTarget;
+        if (next && !event.currentTarget.contains(next)) setOpen(false);
+      }}
+      ref={wrapRef}
+    >
+      <button
+        aria-controls={menuId}
+        aria-expanded={open}
+        aria-label={compact ? "Bruno, 5.º año" : undefined}
+        className="account-trigger"
+        onClick={() => setOpen((current) => !current)}
+        ref={triggerRef}
+        type="button"
+      >
+        <Portrait patient="Bruno" />
+        {!compact && (
+          <span className="account-name">
+            <strong>Bruno</strong>
+            <small>5.º año</small>
+          </span>
+        )}
+        <svg aria-hidden="true" className="account-chevron" fill="none" viewBox="0 0 12 12">
+          <path d="m3 4.5 3 3 3-3" stroke="currentColor" strokeLinecap="round" strokeWidth="1.6" />
+        </svg>
+      </button>
+      <div className={`account-menu ${open ? "open" : ""}`} id={menuId}>
+        <a href="/progreso">Mi progreso</a>
+        <button onClick={resetDemo} type="button">
+          Reiniciar demo
+        </button>
+        <a href="/">Salir</a>
+      </div>
+    </div>
+  );
+}
+
+function LoggedTopbar({ current = "inicio" }: { current?: "inicio" | "casos" | "progreso" }) {
+  const links = [
+    { id: "inicio", label: "Inicio", href: "/inicio" },
+    { id: "casos", label: "Casos", href: "/inicio" },
+    { id: "progreso", label: "Mi progreso", href: "/progreso" },
+  ];
   return (
     <header className="topbar logged-topbar">
       <div className="nav-content">
@@ -196,25 +296,24 @@ function LoggedTopbar({ current = "inicio" }: { current?: "inicio" | "progreso" 
           <CompassLogo />
         </a>
         <nav aria-label="Navegación principal" className="logged-nav">
-          <a
-            className={current === "inicio" ? "active" : ""}
-            aria-current={current === "inicio" ? "page" : undefined}
-            href="/inicio"
-          >
-            Inicio
-          </a>
-          <a
-            className={current === "progreso" ? "active" : ""}
-            aria-current={current === "progreso" ? "page" : undefined}
-            href="/progreso"
-          >
-            Mi progreso
-          </a>
+          {links.map((link) => (
+            <a
+              aria-current={current === link.id ? "page" : undefined}
+              className={current === link.id ? "active" : ""}
+              href={link.href}
+              key={link.id}
+            >
+              {link.label}
+            </a>
+          ))}
         </nav>
-        <a className="student-profile" href="/inicio" aria-label="Perfil de Bruno">
-          <span className="avatar">B</span>
-          <span>Bruno</span>
-        </a>
+        <div className="topbar-right">
+          <span className="territory-chip">
+            <span aria-hidden="true" />
+            Endocrinología
+          </span>
+          <AccountMenu />
+        </div>
       </div>
     </header>
   );
@@ -268,7 +367,6 @@ function Competency({ competency }: { competency: CompetencyState }) {
   );
 }
 
-// Historial ilustrativo: el resultado de cada parada coincide con el total de aciertos del caso.
 const recentCases: Array<{
   title: string;
   patient: string;
@@ -279,21 +377,13 @@ const recentCases: Array<{
     title: "Cetoacidosis tras gastroenteritis",
     patient: useWorstCase ? `${worstCaseLongName}, 24 años` : "Lucía, 24 años",
     portrait: "Lucía",
-    marks: [
-      { correct: true, answer: "" },
-      { correct: false, answer: "" },
-      { correct: true, answer: "" },
-    ],
+    marks: seededDecisions.filter(({ caseName }) => caseName === "Lucía"),
   },
   {
     title: "Palpitaciones y pérdida de peso",
     patient: "Marta, 35 años",
     portrait: "Marta",
-    marks: [
-      { correct: true, answer: "" },
-      { correct: true, answer: "" },
-      { correct: true, answer: "" },
-    ],
+    marks: seededDecisions.filter(({ caseName }) => caseName === "Marta"),
   },
 ];
 
@@ -325,7 +415,9 @@ function RecentCase({
             </span>
           ))}
         </div>
-        <span>{marks.filter((mark) => mark.correct).length} de 3 aciertos</span>
+        <span>
+          {marks.filter((mark) => mark.correct).length} de {marks.length} aciertos
+        </span>
       </div>
     </article>
   );
@@ -461,7 +553,7 @@ function ElenaCaseIntro() {
 
   return (
     <div className="case-intro-page">
-      <LoggedTopbar />
+      <LoggedTopbar current="casos" />
       <main className="case-intro">
         <p className="breadcrumb">Endocrinología / {elenaPatient.caseTitle}</p>
         <header className="patient-card">
@@ -538,7 +630,12 @@ function ElenaCaseIntro() {
   );
 }
 
-type CaseOption = { text: string; explanation: string; correct?: boolean };
+type CaseOption = { text: string; explanation: string; correct?: boolean; errorTitle?: string };
+
+const errorStage = "Confunde estado subclínico y manifiesto";
+const errorOrigin = "Confunde origen primario y central";
+const errorHormone = "Confunde sustitución y bloqueo hormonal";
+const errorFollowUp = "Confunde etiología y seguimiento";
 
 const baseElenaStops: Array<{
   title: string;
@@ -561,12 +658,21 @@ const baseElenaStops: Array<{
         explanation: "Integra TSH alta y T4 libre baja.",
         correct: true,
       },
-      { text: "Hipotiroidismo subclínico", explanation: "No concuerda con T4 libre baja." },
+      {
+        text: "Hipotiroidismo subclínico",
+        explanation: "No concuerda con T4 libre baja.",
+        errorTitle: errorStage,
+      },
       {
         text: "Hipotiroidismo central",
         explanation: "TSH marcadamente alta favorece falla primaria.",
+        errorTitle: errorOrigin,
       },
-      { text: "Hipertiroidismo primario", explanation: "El patrón hormonal es opuesto." },
+      {
+        text: "Hipertiroidismo primario",
+        explanation: "El patrón hormonal es opuesto.",
+        errorTitle: errorStage,
+      },
     ] satisfies CaseOption[],
     reminder: "Relaciona ambas pruebas: no interpretes solo la TSH.",
   },
@@ -581,14 +687,17 @@ const baseElenaStops: Array<{
       {
         text: "Metimazol",
         explanation: "Inhibe la producción hormonal; no corresponde a este déficit.",
+        errorTitle: errorHormone,
       },
       {
         text: "Propranolol como único tratamiento",
         explanation: "No repone la hormona que falta.",
+        errorTitle: errorHormone,
       },
       {
         text: "Liotironina de rutina como primera elección",
         explanation: "No es la opción rutinaria de primera línea.",
+        errorTitle: errorHormone,
       },
     ] satisfies CaseOption[],
     reminder: "Distingue sustituir la hormona de bloquear su síntesis.",
@@ -601,9 +710,21 @@ const baseElenaStops: Array<{
     question: "¿Qué prueba debe guiar el seguimiento rutinario de este hipotiroidismo tratado?",
     options: [
       { text: "TSH sérica", explanation: "Es la prueba principal de seguimiento.", correct: true },
-      { text: "Anticuerpos antiperoxidasa seriados", explanation: "No ajustan el reemplazo." },
-      { text: "Ecografía tiroidea seriada", explanation: "No mide la respuesta bioquímica." },
-      { text: "T3 total como única prueba", explanation: "No es la prueba principal de control." },
+      {
+        text: "Anticuerpos antiperoxidasa seriados",
+        explanation: "No ajustan el reemplazo.",
+        errorTitle: errorFollowUp,
+      },
+      {
+        text: "Ecografía tiroidea seriada",
+        explanation: "No mide la respuesta bioquímica.",
+        errorTitle: errorFollowUp,
+      },
+      {
+        text: "T3 total como única prueba",
+        explanation: "No es la prueba principal de control.",
+        errorTitle: errorFollowUp,
+      },
     ] satisfies CaseOption[],
     reminder: "No confundas la prueba de seguimiento con el estudio de la causa.",
   },
@@ -645,7 +766,13 @@ const demoLearners: Array<{ id: LearnerId; label: string; interpretacionTheta?: 
 
 function startingCompetencies(learnerId: LearnerId) {
   const theta = demoLearners.find(({ id }) => id === learnerId)?.interpretacionTheta;
-  return seedCompetencies.map((competency) =>
+  const base = devProgress
+    ? seedCompetencies.map((competency) => {
+        const own = devProgress.filter(({ competencyId }) => competencyId === competency.id);
+        return { ...competency, n: own.length, theta: own[own.length - 1]?.thetaAfter ?? 0 };
+      })
+    : seedCompetencies;
+  return base.map((competency) =>
     competency.id === "interpretacion" && theta !== undefined
       ? { ...competency, theta }
       : competency,
@@ -793,7 +920,10 @@ function FocusTopbar() {
           <CompassLogo />
         </a>
         <span title={elenaPatient.caseTitle}>{elenaPatient.caseTitle}</span>
-        <a href="/inicio">Salir</a>
+        <div className="focus-actions">
+          <a href="/inicio">Salir</a>
+          <AccountMenu compact />
+        </div>
       </div>
     </header>
   );
@@ -1337,15 +1467,78 @@ function competenciesAfterElena(answers: SavedAnswer[], plan: CasePlan | null) {
     (competencies, answer, index) => {
       const stop = elenaStops[index];
       if (!answer || !stop) return competencies;
-      const difficulty = index === 0 && plan ? planVariant(plan).difficulty : stop.difficulty;
       return competencies.map((competency) =>
         competency.id === stop.competencyId
-          ? applyAnswer(competency, answer.correct, difficulty)
+          ? applyAnswer(competency, answer.correct, stopDifficulty(index, plan))
           : competency,
       );
     },
     startingCompetencies(plan?.learnerId ?? "bruno"),
   );
+}
+
+function stopDifficulty(index: number, plan: CasePlan | null) {
+  return index === 0 && plan ? planVariant(plan).difficulty : elenaStops[index].difficulty;
+}
+
+// El θ tras cada intento sale de la misma réplica del motor; así no puede contarse dos veces.
+function buildDecisionHistory(answers: SavedAnswer[], plan: CasePlan | null): Decision[] {
+  let competencies = startingCompetencies(plan?.learnerId ?? "bruno");
+  const startTheta = competencies.find(({ id }) => id === "interpretacion")!.theta;
+  const lastInterpretation = baseDecisions
+    .map(({ competencyId }) => competencyId)
+    .lastIndexOf("interpretacion");
+  const base = baseDecisions.map((decision, index) =>
+    index === lastInterpretation ? { ...decision, thetaAfter: startTheta } : decision,
+  );
+  const played = answers.flatMap((answer, index) => {
+    const stop = elenaStops[index];
+    if (!answer || !stop) return [];
+    competencies = competencies.map((competency) =>
+      competency.id === stop.competencyId
+        ? applyAnswer(competency, answer.correct, stopDifficulty(index, plan))
+        : competency,
+    );
+    const option = stop.options.find(({ text }) => text === answer.answer) as
+      | CaseOption
+      | undefined;
+    return [
+      {
+        caseName: "Elena",
+        competencyId: stop.competencyId,
+        correct: answer.correct,
+        answer: answer.answer,
+        confidence: answer.confidence,
+        seconds: answer.time,
+        thetaAfter: competencies.find(({ id }) => id === stop.competencyId)!.theta,
+        errorTitle: answer.correct ? undefined : option?.errorTitle,
+      },
+    ];
+  });
+  return [...base, ...played];
+}
+
+function buildSystemDecisions(
+  plan: CasePlan | null,
+  competencies: CompetencyState[],
+  finished: boolean,
+) {
+  if (import.meta.env.DEV && devDataParam === "many") return manySystemDecisions();
+  if (devProgress) return [];
+  const log = [...seededSystemDecisions];
+  if (plan) {
+    const variant = planVariant(plan);
+    const chance = chanceOf(startingTheta(plan.learnerId), variant.difficulty);
+    log.push(`Parada 1 de Elena: versión ${variant.name.toLowerCase()} (${chance} % estimado)`);
+  }
+  if (finished) {
+    const { candidate, competency, chance } = recommendNextCase(competencies);
+    const status = describeCompetency(competency).label.toLowerCase();
+    log.push(
+      `Siguiente caso: ${candidate.mapName}, porque ${competency.name.toLowerCase()} está en ${status} (${Math.round(chance * 100)} %)`,
+    );
+  }
+  return log;
 }
 
 function formatDuration(seconds: number) {
@@ -1412,7 +1605,7 @@ function ElenaCaseResult() {
 
   return (
     <div className="result-page">
-      <LoggedTopbar />
+      <LoggedTopbar current="casos" />
       <main className="result-main">
         <header className={`result-head ${closing ? "is-closing" : ""}`}>
           <div className="result-head-copy">
@@ -1695,19 +1888,188 @@ function VariantExplanation({ plan }: { plan: CasePlan | null }) {
   );
 }
 
+function Sparkline({ label, trail }: { label: string; trail: number[] }) {
+  const toX = (index: number) => (index / (trail.length - 1)) * 100;
+  const toY = (value: number) => (1 - value) * 100;
+  const percent = (value: number) => Math.round(value * 100);
+  const last = trail[trail.length - 1];
+  return (
+    <div
+      aria-label={`${label}: de ${percent(trail[0])} % a ${percent(last)} % en ${trail.length} respuestas.`}
+      className="sparkline-row"
+      role="img"
+    >
+      <span>{percent(trail[0])} %</span>
+      <div className="sparkline">
+        <svg aria-hidden="true" fill="none" preserveAspectRatio="none" viewBox="0 0 100 100">
+          <line className="sparkline-mid" x1="0" x2="100" y1="50" y2="50" />
+          <polyline
+            className="sparkline-line"
+            points={trail.map((value, index) => `${toX(index)},${toY(value)}`).join(" ")}
+          />
+        </svg>
+        {trail.map((value, index) => (
+          <span
+            className={`sparkline-point ${index === trail.length - 1 ? "last" : ""}`}
+            key={index}
+            style={{ left: `${toX(index)}%`, top: `${toY(value)}%` }}
+            title={`Respuesta ${index + 1}: ${percent(value)} %`}
+          />
+        ))}
+      </div>
+      <strong>{percent(last)} %</strong>
+    </div>
+  );
+}
+
+function ProgressMetrics({
+  decisions,
+  completedCount,
+  competencies,
+  systemDecisions,
+}: {
+  decisions: Decision[];
+  completedCount: number;
+  competencies: CompetencyState[];
+  systemDecisions: string[];
+}) {
+  const summary = summarizeDecisions(decisions);
+  const enough = summary.total >= 2;
+  const times = (count: number) => `${count} ${count === 1 ? "vez" : "veces"}`;
+  const indicators = [
+    { label: "Casos completados", value: completedCount.toLocaleString("es") },
+    { label: "Decisiones respondidas", value: summary.total.toLocaleString("es") },
+    { label: "Aciertos", value: `${summary.correctRate} %` },
+    { label: "Tiempo medio por decisión", value: formatDuration(summary.averageSeconds) },
+  ];
+  const withTrail = competencies.filter((competency) => competency.n >= 2);
+  const visibleLog = systemDecisions.slice(-10);
+
+  return (
+    <div className="metrics">
+      <section aria-label="Indicadores">
+        <dl className="indicators">
+          {indicators.map(({ label, value }) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>
+                {enough ? value : "—"}
+                {!enough && <small>Sin evidencia suficiente</small>}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        {summary.total > 0 && (
+          <p className="no-idea-rate">
+            Respondiste «No sé» en {summary.noIdeaCount} de {summary.total}{" "}
+            {summary.total === 1 ? "decisión" : "decisiones"}.
+          </p>
+        )}
+      </section>
+
+      <section className="metric-section">
+        <h2>Cómo evoluciona tu nivel</h2>
+        {withTrail.length === 0 ? (
+          <p className="metric-empty">
+            Aparecerá cuando una competencia tenga al menos 2 respuestas.
+          </p>
+        ) : (
+          <ul className="trend-list">
+            {withTrail.map((competency) => (
+              <li key={competency.id}>
+                <p>{competency.name}</p>
+                <Sparkline
+                  label={competency.name}
+                  trail={competencyTrail(decisions, competency.id)}
+                />
+                <CompetencyStatus competency={competency} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <div className="metric-pair">
+        <section className="metric-section">
+          <h2>Tu seguridad frente a tus aciertos</h2>
+          <ul className="confidence-list">
+            {summary.confidence.map(({ level, count, rate }) => (
+              <li key={level}>
+                <strong>{level}</strong>
+                <span>{times(count)}</span>
+                <div className={`progress-track ${rate === null ? "dashed" : ""}`}>
+                  {rate !== null && <span style={{ width: `${rate}%` }} />}
+                </div>
+                <span className="confidence-rate">{rate === null ? "—" : `${rate} %`}</span>
+              </li>
+            ))}
+          </ul>
+          {summary.overconfidentCount > 0 && (
+            <p className="overconfidence-note">
+              {times(summary.overconfidentCount)} estabas muy seguro y no era la correcta. Vale la
+              pena revisar esas decisiones.
+            </p>
+          )}
+        </section>
+
+        <section className="metric-section">
+          <h2>Errores que más se repiten</h2>
+          {summary.errors.length === 0 ? (
+            <p className="metric-empty">Todavía no hay respuestas incorrectas que agrupar.</p>
+          ) : (
+            <ul className="error-list">
+              {summary.errors.map(({ title, count }) => (
+                <li key={title}>
+                  <div>
+                    <strong>{title}</strong>
+                    {count === 1 && (
+                      <p>Visto una vez. Lo confirmaremos si se repite en otro caso.</p>
+                    )}
+                  </div>
+                  {count > 1 && <span>{times(count)}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      <section className="metric-section">
+        <h2>Decisiones del sistema</h2>
+        {visibleLog.length === 0 ? (
+          <p className="metric-empty">El sistema aún no ha tomado decisiones.</p>
+        ) : (
+          <>
+            <ol className="decision-log">
+              {visibleLog.map((decision) => (
+                <li key={decision}>{decision}</li>
+              ))}
+            </ol>
+            {systemDecisions.length > visibleLog.length && (
+              <p className="metric-empty">
+                Mostramos las últimas {visibleLog.length} de {systemDecisions.length}.
+              </p>
+            )}
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function ProgressPage() {
   const [showCalculation, setShowCalculation] = useState(false);
   const answers = readElenaAnswers();
   const plan = readCasePlan();
   const competencies = competenciesAfterElena(answers, plan);
   const finished = isCaseFinished(answers);
-  const completed = ["Lucía", "Marta", ...(finished ? ["Elena"] : [])];
+  const decisions = buildDecisionHistory(answers, plan);
+  const completed = [
+    ...new Set(baseDecisions.map(({ caseName }) => caseName)),
+    ...(finished ? ["Elena"] : []),
+  ];
+  const onMap = completed.filter((name) => ["Lucía", "Marta", "Elena"].includes(name));
   const current = finished ? recommendNextCase(competencies).candidate.mapName : "Elena";
-
-  function resetDemo() {
-    sessionStorage.clear();
-    window.location.reload();
-  }
 
   return (
     <div className="student-page">
@@ -1715,9 +2077,16 @@ function ProgressPage() {
       <main className="progress-main">
         <h1>Tu progreso</h1>
         <p className="progress-summary">
-          Endocrinología: {completed.length} casos completados de 26.
+          Endocrinología: {completed.length}{" "}
+          {completed.length === 1 ? "caso completado" : "casos completados"} de 26.
         </p>
-        <TerritoryMap territoryStops={buildTerritoryStops(completed, current)} />
+        <TerritoryMap territoryStops={buildTerritoryStops(onMap, current)} />
+        <ProgressMetrics
+          competencies={competencies}
+          completedCount={completed.length}
+          decisions={decisions}
+          systemDecisions={buildSystemDecisions(plan, competencies, finished)}
+        />
         <section className="progress-card" id="competency-details">
           <h2>Competencias</h2>
           {showCalculation && (
@@ -1759,6 +2128,7 @@ function ProgressPage() {
             </button>
           </div>
         </div>
+        <DevDataToggle />
       </main>
     </div>
   );

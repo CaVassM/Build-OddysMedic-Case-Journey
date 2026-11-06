@@ -47,6 +47,7 @@ OddysMedic adapta las preguntas y las rutas de aprendizaje según las capacidade
 - **Contenido clínico:** casos ficticios basados en guías: NICE NG145 en el caso de Elena; ADA 2026 y otras en el resto del banco.
 - **Estado de validación:** el contenido aún NO tiene validación médica. Los casos están en estado «Borrador» o «Listo para revisión».
 - **Retratos:** estilo Open Peeps de Pablo Stanley, con licencia CC0 1.0 según el archivo `LICENSE` de `@dicebear/open-peeps` 9.4.2; el código de DiceBear es MIT. Se generan en local con `@dicebear/core` y `@dicebear/collection`, sin peticiones a la API de DiceBear. Los pacientes son ficticios.
+- **Historial de ejemplo:** las 9 respuestas de Lucía y Marta en `src/history.ts`, con su seguridad, sus errores y su θ tras cada intento, son datos sembrados para la demo y no reflejan a ningún alumno real. Los títulos «Confunde el orden de prioridades» y «Confunde causa y desencadenante» se escribieron para este ejemplo y no vienen del banco.
 - **Sin evidencia de uso:** no hay testimonios, clientes, estudios de eficacia ni métricas reales. No inventarlos.
 - **Cifras ilustrativas:** niveles de competencia, probabilidades, total de casos y progreso son datos de demo, no resultados medidos.
 

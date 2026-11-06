@@ -9,6 +9,16 @@ const withoutExtras = { accessoriesProbability: 0, facialHairProbability: 0, mas
 
 // La semilla es fija y el aspecto se elige por paciente, para que el retrato encaje con su edad y su caso.
 const looks: Record<string, { tone: Tone; options: openPeeps.Options }> = {
+  Bruno: {
+    tone: "aqua",
+    options: {
+      head: ["short3"],
+      face: ["smile"],
+      skinColor: ["edb98a"],
+      headContrastColor: ["2c1b18"],
+      clothingColor: ["2e2a78"],
+    },
+  },
   Elena: {
     tone: "aqua",
     options: {
