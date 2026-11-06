@@ -36,7 +36,9 @@ OddysMedic adapta las preguntas y las rutas de aprendizaje según las capacidade
 
 ## Brand Commitments
 
-- Sistema «Mar vinoso»: #2E2A78, aguamarina #43D6BE y tinta #1A1840, con Bricolage Grotesque y Atkinson Hyperlegible.
+- Sistema «Mar vinoso»: #2E2A78, aguamarina #43D6BE y tinta #1A1840, con Bricolage Grotesque y Atkinson Hyperlegible para la interfaz, y Newsreader solo para el relato clínico.
+- Fondo de papel cálido #FAF8F5. Solo los objetos son tarjetas: la ficha del paciente, «Tu siguiente caso» y el panel del caso.
+- Los pacientes tienen cara: retratos ilustrados sobre un círculo pastel, nunca fotos.
 - Tono amigable pero adulto, nada infantil.
 - Sin gamificación tipo racha o vidas.
 
@@ -44,6 +46,7 @@ OddysMedic adapta las preguntas y las rutas de aprendizaje según las capacidade
 
 - **Contenido clínico:** casos ficticios basados en guías: NICE NG145 en el caso de Elena; ADA 2026 y otras en el resto del banco.
 - **Estado de validación:** el contenido aún NO tiene validación médica. Los casos están en estado «Borrador» o «Listo para revisión».
+- **Retratos:** estilo Open Peeps de Pablo Stanley, con licencia CC0 1.0 según el archivo `LICENSE` de `@dicebear/open-peeps` 9.4.2; el código de DiceBear es MIT. Se generan en local con `@dicebear/core` y `@dicebear/collection`, sin peticiones a la API de DiceBear. Los pacientes son ficticios.
 - **Sin evidencia de uso:** no hay testimonios, clientes, estudios de eficacia ni métricas reales. No inventarlos.
 - **Cifras ilustrativas:** niveles de competencia, probabilidades, total de casos y progreso son datos de demo, no resultados medidos.
 

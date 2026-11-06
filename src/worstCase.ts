@@ -1,14 +1,16 @@
 // Datos extremos para comprobar la ficha y las opciones. Solo se usan en desarrollo con ?data=worst.
 
+export const worstCaseLongName = "María José de la Cruz y Fernández-Wiśniewska Oberhauser";
+
 export const worstCasePatient = {
-  initial: "M",
-  name: "María José de la Cruz y Fernández-Wiśniewska Oberhauser",
+  name: worstCaseLongName,
   caseTitle: "Consulta por cansancio persistente con intolerancia al frío y estreñimiento",
+  complaint:
+    "Cansancio persistente de varios meses con intolerancia al frío y estreñimiento progresivo",
   chips: [
     "101 años",
     "Mujer",
     "Consulta ambulatoria de endocrinología y metabolismo del hospital regional",
-    "Cansancio persistente de varios meses con intolerancia al frío y estreñimiento progresivo",
   ],
 };
 

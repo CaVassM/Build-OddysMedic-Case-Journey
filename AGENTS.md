@@ -18,7 +18,8 @@ This is the canonical project structure. Start with task-relevant files below. O
 - `src/main.tsx` - React entrypoint; imports `src/index.css` and mounts `src/App.tsx` into the `#root` element
 - `src/App.tsx` - All screens, routing, and case data (stops, variants, candidate next cases, demo learners); the usual starting point for UI work
 - `src/engine.ts` - Adaptive Elo engine with no UI: seed competencies, probability, answer update, status, variant choice, and next-case recommendation
-- `src/worstCase.ts` - Extreme data for the patient card and answer options, used only in development with `?data=worst` on `/caso/elena` or `/caso/elena/jugar`
+- `src/portraits.ts` - Patient portraits generated locally with DiceBear (Open Peeps, CC0), with a fixed seed and look per patient
+- `src/worstCase.ts` - Extreme data, including a long patient name, used only in development with `?data=worst`
 - `src/index.css` - Global CSS entrypoint, Tailwind CSS v4 import, and the hand-written classes for every screen
 - `index.html` - Vite HTML shell containing the font links and the `#root` element, and loading `src/main.tsx`
 - `PRODUCT.md` - Product context and the "Pendiente" list
@@ -43,7 +44,7 @@ This is the canonical project structure. Start with task-relevant files below. O
 
 State lives only in `sessionStorage`, so it does not carry over to a new browser session:
 
-- `elena-plan` - `{ learnerId, variantId }`. "Empezar caso" sets it and removes `elena-answers`, and it stays fixed for the rest of the case
+- `elena-plan` - `{ learnerId, variantId }`. "Empezar caso" sets it and removes `elena-answers` and `elena-closed`, and it stays fixed for the rest of the case
 - `elena-answers` - One saved answer per stop
 
 Competencies are recalculated on each screen by replaying `elena-answers` over the seed, never stored, so reopening a screen can't count an answer twice. Each attempt starts again from the seed. "Reiniciar demo" calls `sessionStorage.clear()` and reloads the page.
@@ -52,7 +53,7 @@ Competencies are recalculated on each screen by replaying `elena-answers` over t
 
 ## Dependencies
 
-- Runtime: React 19 and React DOM 19
+- Runtime: React 19, React DOM 19, and `@dicebear/core` with `@dicebear/collection` (both on major version 9, which `collection` requires)
 - Styling: Tailwind CSS v4 with the `@tailwindcss/vite` plugin
 - Build tooling: Vite 8, TypeScript 5, and `@vitejs/plugin-react`
 - Formatting: oxfmt
@@ -67,6 +68,8 @@ Primary buttons are #2E2A78 with white text. Use aquamarine #43D6BE for buttons 
 
 Fonts load with `<link>` tags in `index.html` (`preconnect` plus `stylesheet`, with `display=swap`), **never with `@import` in CSS**. Request Bricolage Grotesque as `family=Bricolage+Grotesque:wght@700;800`; the earlier request with optical-size and width axes was rejected by Google Fonts. Font-family defaults stay in `src/index.css`, whose only `@import` is Tailwind.
 
-Motion lives in `src/index.css`, using the `--ease-out` and `--ease-in-out` curves. The landing page's only load animation is the hero route. On `/caso/elena/jugar`, answering plays one sequence: options recolor in a cascade, the explanation enters, then the route segment draws. Picking an option is instant, and `prefers-reduced-motion` keeps only opacity.
+The page background is warm paper (`--paper`, #FAF8F5). Only objects are cards: the patient card, "Tu siguiente caso", and the case panel. Other sections are separated by space and headings. Newsreader (`--story`) is only for clinical narrative: the reason for consultation, the "Tu siguiente caso" vignette, and "Para recordar".
+
+Motion lives in `src/index.css`, using the `--ease-out` and `--ease-in-out` curves. Each animation plays once and its resting state is the finished one, so nothing stays hidden if it doesn't run. The landing page draws the hero route on load, and the current stop of a route draws one ECG wave (`Heartbeat`). On `/caso/elena/jugar`, answering plays one sequence: options recolor in a cascade, the explanation enters, then the route segment draws. On `/caso/elena/resultado`, the route reaches the "Caso cerrado" stamp once per attempt (`elena-closed` in `sessionStorage`). Picking an option is instant. `prefers-reduced-motion` keeps only opacity in the answer sequence and removes the rest.
 
 Tailwind emits utility classes in `@layer utilities`, and CSS outside any cascade layer overrides every layer regardless of specificity. Put global element styles, such as resets and defaults for `body`, headings, `button`, or `input`, inside `@layer base { ... }` so utility classes on those elements still apply. Tailwind's Preflight already applies `box-sizing: border-box`, removes default margins, and sets `font: inherit` on form controls, so do not repeat those rules.

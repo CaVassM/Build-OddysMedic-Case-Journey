@@ -17,7 +17,8 @@ import {
   type CompetencyId,
   type CompetencyState,
 } from "./engine";
-import { worstCasePatient, worstCaseStop } from "./worstCase";
+import { portraitSrc, portraitTone, type PortraitName } from "./portraits";
+import { worstCaseLongName, worstCasePatient, worstCaseStop } from "./worstCase";
 
 // Solo en desarrollo y solo si la URL lo pide: una demo normal no ve ni el selector ni estos datos.
 const devDataParam = import.meta.env.DEV
@@ -56,23 +57,35 @@ function CompassLogo() {
   );
 }
 
-const heroRoutePath = "M28 319c23-47 78-20 80-87 2-45-39-63-4-111 36-49 98 1 135-47";
-
-// La ruta es punteada: una máscara con el mismo trazo la revela de principio a fin.
-function Route({ className = "" }: { className?: string }) {
+function Portrait({ patient, className = "" }: { patient: PortraitName; className?: string }) {
   return (
-    <svg className={`route ${className}`} viewBox="0 0 380 355" fill="none" aria-hidden="true">
-      <mask
-        id="hero-route-reveal"
-        maskUnits="userSpaceOnUse"
-        x="0"
-        y="-20"
-        width="380"
-        height="375"
-      >
+    <span className={`portrait ${portraitTone(patient)} ${className}`}>
+      <img alt="" src={portraitSrc(patient)} />
+    </span>
+  );
+}
+
+// Una sola onda de ECG: línea base, P, QRS, T y vuelta a la base. Se dibuja una vez al montarse.
+const heartbeatPath = "M0 16H20q4 -6 8 0H34l3 4 5 -20 5 24 4 -8H60q5 -8 10 0H80";
+
+function Heartbeat() {
+  return (
+    <svg className="heartbeat" viewBox="0 0 80 28" fill="none" aria-hidden="true">
+      <path className="heartbeat-path" d={heartbeatPath} pathLength="1" />
+    </svg>
+  );
+}
+
+const heroDonePath = "M74 380C150 380 130 250 250 250";
+
+// La ruta es punteada: una máscara con el mismo trazo la revela. Luego late antes de la parada actual.
+function HeroRoute() {
+  return (
+    <svg className="route" viewBox="0 0 640 480" fill="none" aria-hidden="true">
+      <mask id="hero-route-reveal" maskUnits="userSpaceOnUse" x="0" y="0" width="640" height="480">
         <path
           className="hero-route-draw"
-          d={heroRoutePath}
+          d={heroDonePath}
           pathLength="1"
           stroke="white"
           strokeWidth="10"
@@ -80,23 +93,42 @@ function Route({ className = "" }: { className?: string }) {
       </mask>
       <path
         className="hero-route-dashes"
-        d={heroRoutePath}
+        d={heroDonePath}
         mask="url(#hero-route-reveal)"
         stroke="#43D6BE"
         strokeWidth="3"
         strokeDasharray="7 8"
         strokeLinecap="round"
       />
-      <circle cx="28" cy="319" r="9" fill="#43D6BE" />
-      <circle cx="108" cy="232" r="11" fill="white" stroke="#43D6BE" strokeWidth="5" />
-      <circle cx="239" cy="74" r="8" fill="white" stroke="#C9C6E3" strokeWidth="3" />
-      <text x="14" y="348">
+      <path
+        className="heartbeat-path"
+        d={heartbeatPath}
+        pathLength="1"
+        transform="translate(250 234)"
+      />
+      <path
+        d="M424 250C500 250 480 130 548 130"
+        stroke="#8F8BC4"
+        strokeWidth="3"
+        strokeDasharray="7 8"
+        strokeLinecap="round"
+      />
+      <circle cx="60" cy="380" r="15" fill="#43D6BE" />
+      <path
+        d="m53 380 5 5 10-11"
+        stroke="#1A1840"
+        strokeWidth="2.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="560" cy="130" r="10" fill="white" stroke="#C9C6E3" strokeWidth="3" />
+      <text x="60" y="420" textAnchor="middle">
         Diagnóstico
       </text>
-      <text x="90" y="237" textAnchor="end">
+      <text x="376" y="188" textAnchor="middle">
         Tratamiento
       </text>
-      <text x="255" y="79">
+      <text x="560" y="166" textAnchor="middle">
         Seguimiento
       </text>
     </svg>
@@ -118,40 +150,20 @@ function CompassRose() {
   );
 }
 
-function StatusCheck() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <circle cx="10" cy="10" r="10" fill="#E3FAF5" />
-      <path
-        d="m6 10 2.4 2.4L14.4 7"
-        fill="none"
-        stroke="#13806D"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function SpecialtyIcon({ children }: { children: ReactNode }) {
-  return <div className="specialty-icon">{children}</div>;
-}
-
 function SpecialtyCard({
   title,
   description,
+  patient,
   active = false,
-  children,
 }: {
   title: string;
   description: string;
+  patient: PortraitName;
   active?: boolean;
-  children: ReactNode;
 }) {
   const content = (
     <>
-      <SpecialtyIcon>{children}</SpecialtyIcon>
+      <Portrait patient={patient} />
       <div>
         <h3>{title}</h3>
         <p>{description}</p>
@@ -257,10 +269,16 @@ function Competency({ competency }: { competency: CompetencyState }) {
 }
 
 // Historial ilustrativo: el resultado de cada parada coincide con el total de aciertos del caso.
-const recentCases: Array<{ title: string; patient: string; marks: StopAnswer[] }> = [
+const recentCases: Array<{
+  title: string;
+  patient: string;
+  portrait: PortraitName;
+  marks: StopAnswer[];
+}> = [
   {
     title: "Cetoacidosis tras gastroenteritis",
-    patient: "Lucía, 24 años",
+    patient: useWorstCase ? `${worstCaseLongName}, 24 años` : "Lucía, 24 años",
+    portrait: "Lucía",
     marks: [
       { correct: true, answer: "" },
       { correct: false, answer: "" },
@@ -270,6 +288,7 @@ const recentCases: Array<{ title: string; patient: string; marks: StopAnswer[] }
   {
     title: "Palpitaciones y pérdida de peso",
     patient: "Marta, 35 años",
+    portrait: "Marta",
     marks: [
       { correct: true, answer: "" },
       { correct: true, answer: "" },
@@ -281,17 +300,22 @@ const recentCases: Array<{ title: string; patient: string; marks: StopAnswer[] }
 function RecentCase({
   title,
   patient,
+  portrait,
   marks,
 }: {
   title: string;
   patient: string;
+  portrait: PortraitName;
   marks: StopAnswer[];
 }) {
   return (
     <article className="recent-case">
-      <div>
-        <h3>{title}</h3>
-        <p>{patient}</p>
+      <div className="recent-who">
+        <Portrait patient={portrait} />
+        <div>
+          <h3>{title}</h3>
+          <p>{patient}</p>
+        </div>
       </div>
       <div className="recent-result">
         <div className="recent-route">
@@ -325,6 +349,7 @@ function StudentHome() {
           <article className="next-case-card">
             <div className="next-case-orbit orbit-one" />
             <div className="next-case-orbit orbit-two" />
+            <Portrait patient={recommended ? recommended.patient : "Elena"} />
             <div className="next-case-main">
               <span className="next-case-label">Tu siguiente caso</span>
               <h2>{recommended ? recommended.title : "Consulta por cansancio"}</h2>
@@ -369,6 +394,7 @@ function StudentHome() {
                 <RecentCase
                   title="Consulta por cansancio"
                   patient="Elena, 68 años"
+                  portrait="Elena"
                   marks={answers}
                 />
               )}
@@ -387,6 +413,7 @@ function StudentHome() {
             Ver todo mi progreso
           </a>
         </aside>
+        <DevDataToggle />
       </main>
     </div>
   );
@@ -416,10 +443,10 @@ function CaseRoute() {
 const elenaPatient = useWorstCase
   ? worstCasePatient
   : {
-      initial: "E",
       name: "Elena",
       caseTitle: "Consulta por cansancio",
-      chips: ["68 años", "Mujer", "Consulta ambulatoria", "Cansancio persistente"],
+      complaint: "Cansancio persistente",
+      chips: ["68 años", "Mujer", "Consulta ambulatoria"],
     };
 
 function ElenaCaseIntro() {
@@ -429,6 +456,7 @@ function ElenaCaseIntro() {
   function startCase() {
     sessionStorage.setItem("elena-plan", JSON.stringify(buildCasePlan(learnerId)));
     sessionStorage.removeItem("elena-answers");
+    sessionStorage.removeItem("elena-closed");
   }
 
   return (
@@ -437,10 +465,14 @@ function ElenaCaseIntro() {
       <main className="case-intro">
         <p className="breadcrumb">Endocrinología / {elenaPatient.caseTitle}</p>
         <header className="patient-card">
-          <span className="patient-initial">{elenaPatient.initial}</span>
+          <Portrait patient="Elena" />
           <div className="patient-card-body">
             <h1>{elenaPatient.caseTitle}</h1>
             <p className="patient-name">{elenaPatient.name}</p>
+            <div className="patient-story">
+              <span>Motivo de consulta</span>
+              <p>{elenaPatient.complaint}</p>
+            </div>
             <ul className="patient-chips">
               {elenaPatient.chips.map((chip) => (
                 <li key={chip}>{chip}</li>
@@ -654,6 +686,7 @@ function chanceOf(theta: number, difficulty: number) {
 // Cada caso candidato practica una sola competencia.
 const nextCaseCandidates: Array<{
   mapName: string;
+  patient: PortraitName;
   title: string;
   line: string;
   reason: string;
@@ -662,8 +695,11 @@ const nextCaseCandidates: Array<{
 }> = [
   {
     mapName: "Rafael",
+    patient: "Rafael",
     title: "Una consulta preventiva y su seguimiento",
-    line: "Rafael, 52 años. Confirmar diabetes con pruebas.",
+    line: useWorstCase
+      ? `${worstCaseLongName}, 52 años. Confirmar diabetes con pruebas.`
+      : "Rafael, 52 años. Confirmar diabetes con pruebas.",
     reason:
       "Te lo sugerimos porque interpretación de resultados es donde más te conviene practicar, y este caso vuelve a pedirte interpretar pruebas.",
     competencyId: "interpretacion",
@@ -671,6 +707,7 @@ const nextCaseCandidates: Array<{
   },
   {
     mapName: "Elena II",
+    patient: "Elena",
     title: "Continuidad del cuidado",
     line: "Elena, meses después. Ajustar el tratamiento y elegir el control.",
     reason:
@@ -766,6 +803,9 @@ function PlayRoute({ stop, answers }: { stop: number; answers: Array<StopAnswer 
   return (
     <div className="play-route">
       <div className="play-track">
+        <div className="play-lead">
+          {stop === 0 ? <Heartbeat key={stop} /> : <span className="play-lead-line" />}
+        </div>
         {elenaStops.map((item, index) => {
           const answer = answers[index];
           const complete = index <= stop && answer;
@@ -784,6 +824,7 @@ function PlayRoute({ stop, answers }: { stop: number; answers: Array<StopAnswer 
                   <span />
                 </div>
               )}
+              {index + 1 === stop && <Heartbeat key={stop} />}
             </Fragment>
           );
         })}
@@ -1313,6 +1354,24 @@ function formatDuration(seconds: number) {
   return `${Math.floor(seconds / 60)} min ${rest} s`;
 }
 
+function CaseClosedStamp() {
+  return (
+    <div aria-label="Caso cerrado" className="case-stamp" role="img">
+      <svg aria-hidden="true" viewBox="0 0 200 200">
+        <defs>
+          <path d="M19 100a81 81 0 1 1 162 0a81 81 0 1 1 -162 0" id="case-stamp-circle" />
+        </defs>
+        <circle cx="100" cy="100" r="98" />
+        <circle cx="100" cy="100" r="66" />
+        <text textLength="505">
+          <textPath href="#case-stamp-circle">CASO CERRADO · CASO CERRADO ·</textPath>
+        </text>
+      </svg>
+      <Portrait patient="Elena" />
+    </div>
+  );
+}
+
 function CompletedRoute({ answers }: { answers: SavedAnswer[] }) {
   return (
     <div className="completed-route">
@@ -1335,6 +1394,11 @@ function CompletedRoute({ answers }: { answers: SavedAnswer[] }) {
 function ElenaCaseResult() {
   const [answers] = useState<SavedAnswer[]>(readElenaAnswers);
   const [showReason, setShowReason] = useState(false);
+  // El cierre se celebra una sola vez por intento; al volver a esta pantalla ya está sellado.
+  const [closing] = useState(() => !sessionStorage.getItem("elena-closed"));
+  useEffect(() => {
+    sessionStorage.setItem("elena-closed", "1");
+  }, []);
   const competencies = competenciesAfterElena(answers, readCasePlan());
   const correctCount = answers.filter((answer) => answer?.correct).length;
   const noIdeaCount = answers.filter((answer) => answer?.answer === "No sé").length;
@@ -1350,14 +1414,22 @@ function ElenaCaseResult() {
     <div className="result-page">
       <LoggedTopbar />
       <main className="result-main">
-        <CompletedRoute answers={answers} />
-        <h1>Terminaste el caso de Elena</h1>
-        <p className="result-summary">Acertaste {correctCount} de 3 decisiones.</p>
-        {noIdeaCount > 0 && (
-          <p className="result-no-idea">
-            Respondiste «No sé» {noIdeaCount} {noIdeaCount === 1 ? "vez" : "veces"}
-          </p>
-        )}
+        <header className={`result-head ${closing ? "is-closing" : ""}`}>
+          <div className="result-head-copy">
+            <div className="result-route">
+              <CompletedRoute answers={answers} />
+              <span className="route-tail" />
+            </div>
+            <h1>Terminaste el caso de Elena</h1>
+            <p className="result-summary">Acertaste {correctCount} de 3 decisiones.</p>
+            {noIdeaCount > 0 && (
+              <p className="result-no-idea">
+                Respondiste «No sé» {noIdeaCount} {noIdeaCount === 1 ? "vez" : "veces"}
+              </p>
+            )}
+          </div>
+          <CaseClosedStamp />
+        </header>
         <div className="result-grid">
           <div>
             <section className="stops-summary-card">
@@ -1400,6 +1472,7 @@ function ElenaCaseResult() {
           <aside className="next-case-result">
             <div className="result-orbit result-orbit-one" />
             <div className="result-orbit result-orbit-two" />
+            <Portrait patient={nextCase.patient} />
             <span>Tu siguiente caso</span>
             <h2>{nextCase.title}</h2>
             <p className="next-case-line">{nextCase.line}</p>
@@ -1461,13 +1534,15 @@ const stopStateLabels: Record<StopState, string> = {
   pending: "pendiente",
 };
 
-function wavePath(stops: Array<{ x: number; y: number }>) {
+// endInset deja libre el último tramo, en % del ancho, para que la línea llegue plana al latido.
+function wavePath(stops: Array<{ x: number; y: number }>, endInset = 0) {
   return stops
     .map((stop, index) => {
       if (index === 0) return `M${stop.x} ${stop.y}`;
       const previous = stops[index - 1];
-      const middle = (previous.x + stop.x) / 2;
-      return `C${middle} ${previous.y} ${middle} ${stop.y} ${stop.x} ${stop.y}`;
+      const x = index === stops.length - 1 ? stop.x - endInset : stop.x;
+      const middle = (previous.x + x) / 2;
+      return `C${middle} ${previous.y} ${middle} ${stop.y} ${x} ${stop.y}`;
     })
     .join(" ");
 }
@@ -1491,7 +1566,10 @@ function TerritoryMap({
         aria-hidden="true"
       >
         <path d={wavePath(territoryStops.slice(currentIndex))} className="route-pending" />
-        <path d={wavePath(territoryStops.slice(0, currentIndex + 1))} className="route-travelled" />
+        <path
+          d={wavePath(territoryStops.slice(0, currentIndex + 1), 8.5)}
+          className="route-travelled"
+        />
       </svg>
       <ol className="territory-stops">
         {territoryStops.map((stop) => (
@@ -1501,9 +1579,11 @@ function TerritoryMap({
             key={stop.name}
             style={{ left: `${stop.x}%`, top: `${stop.y}%` }}
           >
+            {stop.state === "current" && <Heartbeat />}
             <span className="territory-dot">
+              <Portrait patient={stop.name === "Elena II" ? "Elena" : stop.name} />
               {stop.state === "done" && (
-                <svg viewBox="0 0 20 20" aria-hidden="true">
+                <svg className="territory-check" viewBox="0 0 20 20" aria-hidden="true">
                   <path
                     d="m6 10.2 2.7 2.7L14 7.4"
                     fill="none"
@@ -1516,7 +1596,7 @@ function TerritoryMap({
               )}
             </span>
             <span className="territory-label">
-              {stop.name}
+              {useWorstCase && stop.name === "Lucía" ? worstCaseLongName : stop.name}
               <span className="sr-only"> ({stopStateLabels[stop.state]})</span>
             </span>
           </li>
@@ -1744,8 +1824,6 @@ export default function App() {
       </header>
 
       <section className="hero" id="como-funciona">
-        <div className="hero-orbit orbit-one" />
-        <div className="hero-orbit orbit-two" />
         <div className="hero-inner">
           <div className="hero-copy">
             <h1>Decide como en la consulta, caso a caso</h1>
@@ -1756,24 +1834,15 @@ export default function App() {
             <ButtonLink>Empezar mi primer caso</ButtonLink>
           </div>
 
-          <div className="case-map" aria-label="Vista previa de un caso clínico">
+          <div className="case-map" aria-label="Vista previa de un caso clínico" role="group">
             <div className="map-grid" />
             <CompassRose />
-            <Route />
-            <div className="case-card diagnosis-card">
-              <div className="card-label">
-                <StatusCheck />
-                <span>Diagnóstico</span>
-              </div>
-              <strong>Acertaste</strong>
-            </div>
+            <HeroRoute />
+            <Portrait patient="Elena" className="hero-portrait" />
             <div className="case-card treatment-card">
               <span className="small-label">Ahora: tratamiento</span>
               <strong>Elena, 68 años, con cansancio persistente</strong>
               <span className="card-meta">Parada 2 de 3</span>
-            </div>
-            <div className="case-card suggestion-card">
-              <span>Te sugerimos practicar interpretación de resultados</span>
             </div>
           </div>
         </div>
@@ -1783,81 +1852,10 @@ export default function App() {
         <div className="section-inner">
           <h2>Elige por dónde empezar</h2>
           <div className="specialty-grid">
-            <SpecialtyCard title="Endocrinología" description="26 casos" active>
-              <svg viewBox="0 0 32 32" aria-hidden="true">
-                <path
-                  d="M16 4v24M8 10h16M8 22h16M10 7v6M22 19v6"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                />
-                <circle
-                  cx="16"
-                  cy="16"
-                  r="4.5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                />
-              </svg>
-            </SpecialtyCard>
-            <SpecialtyCard title="Cardiología" description="Muy pronto">
-              <svg viewBox="0 0 32 32" aria-hidden="true">
-                <path
-                  d="M16 27s-10-5.8-10-13.1C6 9.6 8.8 7 12 7c2 0 3.5 1 4 2.5C16.5 8 18 7 20 7c3.2 0 6 2.6 6 6.9C26 21.2 16 27 16 27Z"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M8.5 16h4l1.7-3.5 3.2 7L19.5 16h4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </SpecialtyCard>
-            <SpecialtyCard title="Neurología" description="Muy pronto">
-              <svg viewBox="0 0 32 32" aria-hidden="true">
-                <path
-                  d="M15.8 27c-3.5 0-5.8-2-5.8-5.1 0-1 .3-2 .9-2.7-1.8-.9-2.9-2.5-2.9-4.5 0-2.4 1.5-4.4 3.8-5.1.7-3 3.2-4.6 6.1-4 2.2.4 3.7 2 4.1 4.1 2.2.7 3.8 2.7 3.8 5.1 0 2-1.1 3.7-2.9 4.5.6.8.9 1.7.9 2.7 0 3.1-2.3 5.1-5.8 5.1"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M16 7.5v19M11 12.5c2.1 0 3 1.2 3 3.2M21 12.5c-2.1 0-3 1.2-3 3.2M10 20c2.5 0 4 1.2 4 3.3M22 20c-2.5 0-4 1.2-4 3.3"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </SpecialtyCard>
-            <SpecialtyCard title="Emergencias" description="Muy pronto">
-              <svg viewBox="0 0 32 32" aria-hidden="true">
-                <path
-                  d="M16 4 5.8 22.5c-.9 1.7.3 3.5 2.2 3.5h16c1.9 0 3.1-1.8 2.2-3.5L16 4Z"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M16 11v6M16 21v.2"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </SpecialtyCard>
+            <SpecialtyCard title="Endocrinología" description="26 casos" patient="Elena" active />
+            <SpecialtyCard title="Cardiología" description="Muy pronto" patient="Cardiología" />
+            <SpecialtyCard title="Neurología" description="Muy pronto" patient="Neurología" />
+            <SpecialtyCard title="Emergencias" description="Muy pronto" patient="Emergencias" />
           </div>
         </div>
       </section>
