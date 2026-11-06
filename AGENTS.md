@@ -38,6 +38,7 @@ This is the canonical project structure. Start with task-relevant files below. O
 
 - `/` - Landing page
 - `/inicio` - Student home. Offers Elena until her case is finished, then the recommended case, which is not playable yet ("Disponible muy pronto"). Competencies show σ(θ) large (a dash without 2 answers); recent cases show date, route, score, time, and competencies
+- `/explorar` - The territory screen (World → Territory → Missions): breadcrumbs, six missions with their public title (never the topic or diagnosis), state "Completado", "Recomendado para ti" (the engine's pick, highlighted in indigo) or "Disponible", and dimmed cards for other territories. Only Elena is playable; the rest carry a disabled "Disponible muy pronto" button, so there are no dead links. It is the only screen where the "Explorar" tab is active
 - `/progreso` - Territory map built from the history, four stat rings, the "No sé" callout, level chart per competency, confidence bars, error cards with "Repasar", the system's decisions as a timeline, the competencies table, "Ver cómo calcula el sistema" toggle, and "Reiniciar demo" button
 - `/caso/elena` - Patient card, "Empezar caso", and the floating demo-only "Probar como" pill
 - `/caso/elena/jugar` - The three case stops, with shortcuts 1–4 and Enter while focus is inside the question. The side panel opens on "Historia" and resets on every stop; "Laboratorio" carries a dot until it is visited. A timer counts up (never down) and can be hidden (`elena-timer-hidden`). Redirects to `/caso/elena` if there is no plan

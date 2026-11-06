@@ -4075,6 +4075,315 @@ button.remember-head {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* /explorar                                                            */
+/* ------------------------------------------------------------------ */
+.explore-main {
+  width: min(1200px, calc(100% - 64px));
+  margin: 0 auto;
+  padding: 32px 0 112px;
+}
+.explore-head h1 {
+  margin: 0;
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 52px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.02;
+}
+.explore-head p {
+  max-width: 62ch;
+  margin: 14px 0 0;
+  color: #5d5b7a;
+  font-size: 19px;
+  line-height: 1.45;
+}
+.explore-missions {
+  margin-top: 56px;
+}
+.explore-territories {
+  margin-top: 72px;
+}
+.explore-missions h2,
+.explore-territories h2 {
+  margin: 0 0 20px;
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+.mission-list {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mission-card {
+  display: flex;
+  min-width: 0;
+}
+.mission-card > article {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  overflow: hidden;
+  padding: 22px 24px;
+  border: 1px solid var(--hairline);
+  border-radius: 20px;
+  background: white;
+  box-shadow: var(--object-shadow);
+}
+.mission-card.recommended > article {
+  border-color: #2e2a78;
+  background: #2e2a78;
+  color: white;
+}
+.mission-card.recommended > article::before {
+  content: "";
+  position: absolute;
+  top: -320px;
+  right: -90px;
+  width: 500px;
+  height: 500px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.mission-card.recommended > article > * {
+  position: relative;
+}
+.mission-card.recommended :focus-visible {
+  outline-color: white;
+}
+.mission-head {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+}
+.mission-head .portrait {
+  width: 64px;
+}
+.mission-card.recommended .mission-head {
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+}
+.mission-card.recommended .mission-head .portrait {
+  width: 76px;
+}
+.mission-title h3 {
+  margin: 0 0 4px;
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.mission-card.recommended .mission-title h3 {
+  font-size: 28px;
+}
+.mission-title p {
+  margin: 0;
+  color: #5d5b7a;
+  font-size: 15px;
+}
+.mission-card.recommended .mission-title p {
+  color: #d5d4e4;
+}
+.mission-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.mission-state .icon {
+  width: 16px;
+  height: 16px;
+}
+.mission-card.completed .mission-state {
+  background: #eceaf8;
+  color: #2e2a78;
+}
+.mission-card.available .mission-state {
+  border: 1px solid #c9c6e3;
+  color: #5d5b7a;
+}
+.mission-card.recommended .mission-state {
+  background: rgba(255, 255, 255, 0.14);
+  color: white;
+}
+.mission-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: #5d5b7a;
+  font-size: 15px;
+}
+.mission-meta li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.mission-meta .icon {
+  width: 16px;
+  height: 16px;
+}
+.mission-card.recommended .mission-meta {
+  color: #d5d4e4;
+}
+.mission-route {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-image: repeating-linear-gradient(90deg, #c9c6e3 0 4px, transparent 4px 8px);
+  background-position: 0 50%;
+  background-repeat: no-repeat;
+  background-size: 100% 2px;
+}
+.mission-reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid #46409a;
+  color: #d5d4e4;
+  font-size: 15px;
+  line-height: 1.45;
+}
+.mission-reason .icon {
+  width: 22px;
+  height: 22px;
+}
+.mission-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 28px;
+}
+.mission-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  margin-left: auto;
+}
+.mission-action .button-link {
+  min-height: 44px;
+  font-size: 16px;
+}
+.mission-soon {
+  min-height: 44px;
+  padding: 0 17px;
+  border: 1.5px solid #c9c6e3;
+  border-radius: 10px;
+  background: #f4f3fb;
+  color: #5d5b7a;
+  cursor: not-allowed;
+  font-family: "Atkinson Hyperlegible", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+}
+.mission-card.recommended .mission-soon {
+  border-color: #8f8bc4;
+  background: transparent;
+  color: #d5d4e4;
+}
+.mission-link {
+  color: #2e2a78;
+  font-size: 15px;
+  font-weight: 700;
+}
+.mission-link:hover {
+  text-decoration: underline;
+}
+.territory-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.territory-cards li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 22px;
+  border: 1.5px dashed #c9c6e3;
+  border-radius: 16px;
+  color: #5d5b7a;
+}
+.territory-cards strong {
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.territory-cards span {
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: #eceaf8;
+  font-size: 14px;
+  font-weight: 700;
+}
+@media (max-width: 900px) {
+  .territory-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 620px) {
+  .explore-main {
+    width: min(100% - 32px, 1200px);
+    padding: 24px 0 64px;
+  }
+  .explore-head h1 {
+    font-size: 40px;
+  }
+  .explore-head p {
+    font-size: 17px;
+  }
+  .explore-missions {
+    margin-top: 40px;
+  }
+  .mission-card > article {
+    padding: 18px;
+  }
+  .mission-head,
+  .mission-card.recommended .mission-head {
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 14px;
+  }
+  .mission-head .portrait,
+  .mission-card.recommended .mission-head .portrait {
+    width: 56px;
+  }
+  .mission-state {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+  .mission-action {
+    margin-left: 0;
+  }
+  .mission-card.recommended .mission-title h3 {
+    font-size: 24px;
+  }
+}
+
 /* Barra superior: primero se va el chip del territorio y después el texto del perfil. */
 @media (max-width: 1000px) {
   .territory-chip {

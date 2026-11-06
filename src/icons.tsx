@@ -28,6 +28,14 @@ export function ArrowRightIcon() {
   );
 }
 
+export function CheckIcon() {
+  return (
+    <Icon>
+      <path d="m4.5 10.5 3.5 3.5 7.5-8" />
+    </Icon>
+  );
+}
+
 export function ClockIcon() {
   return (
     <Icon>

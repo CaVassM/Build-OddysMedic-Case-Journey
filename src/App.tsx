@@ -38,6 +38,7 @@ import {
   ChevronIcon,
   ClockIcon,
   CompassIcon,
+  CheckIcon,
   CompetencyIcon,
   EyeIcon,
   FlaskIcon,
@@ -304,10 +305,11 @@ function AccountMenu({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function LoggedTopbar({ current = "inicio" }: { current?: "inicio" | "casos" | "progreso" }) {
+// En las pantallas de un caso no hay pestaña activa: «Explorar» solo lo está en /explorar.
+function LoggedTopbar({ current }: { current?: "inicio" | "explorar" | "progreso" }) {
   const links = [
     { id: "inicio", label: "Inicio", href: "/inicio" },
-    { id: "casos", label: "Casos", href: "/inicio" },
+    { id: "explorar", label: "Explorar", href: "/explorar" },
     { id: "progreso", label: "Mi progreso", href: "/progreso" },
   ];
   return (
@@ -415,7 +417,7 @@ type RecentCaseData = {
 const exampleCases: Array<Omit<RecentCaseData, "decisions"> & { caseName: string }> = [
   {
     caseName: "Lucía",
-    title: "Cetoacidosis tras gastroenteritis",
+    title: "Malestar tras una gastroenteritis",
     patient: useWorstCase ? `${worstCaseLongName}, 24 años` : "Lucía, 24 años",
     portrait: "Lucía",
     href: "/progreso",
@@ -521,7 +523,7 @@ function StudentHome() {
 
   return (
     <div className="student-page">
-      <LoggedTopbar />
+      <LoggedTopbar current="inicio" />
       <main className="student-main">
         <section className="student-left">
           <h1>Hola, Bruno</h1>
@@ -635,7 +637,7 @@ function ElenaCaseIntro() {
 
   return (
     <div className="case-intro-page">
-      <LoggedTopbar current="casos" />
+      <LoggedTopbar />
       <main className="case-intro">
         <p className="breadcrumb">Endocrinología / {elenaPatient.caseTitle}</p>
         <header className="patient-card">
@@ -1886,7 +1888,7 @@ function ElenaCaseResult() {
 
   return (
     <div className="result-page">
-      <LoggedTopbar current="casos" />
+      <LoggedTopbar />
       <main className="result-main">
         <header className={`result-head ${closing ? "is-closing" : ""}`}>
           <div className="result-head-copy">
@@ -2716,6 +2718,234 @@ function ProgressPage() {
   );
 }
 
+type MissionState = "completed" | "recommended" | "available";
+
+// Catálogo del territorio. Cada misión se muestra con su título público: nunca el tema ni el diagnóstico.
+// Las edades y el título de Sofía son de ejemplo; la clave es el nombre que usa el mapa del territorio.
+const missionCatalog: Array<{
+  key: string;
+  title: string;
+  patient: string;
+  age: number;
+  portrait: PortraitName;
+}> = [
+  {
+    key: "Elena",
+    title: elenaPatient.caseTitle,
+    patient: "Elena",
+    age: 68,
+    portrait: "Elena",
+  },
+  {
+    key: "Rafael",
+    title: "Una consulta preventiva y su seguimiento",
+    patient: "Rafael",
+    age: 52,
+    portrait: "Rafael",
+  },
+  {
+    key: "Lucía",
+    title: "Malestar tras una gastroenteritis",
+    patient: useWorstCase ? worstCaseLongName : "Lucía",
+    age: 24,
+    portrait: "Lucía",
+  },
+  {
+    key: "Marta",
+    title: "Palpitaciones y pérdida de peso",
+    patient: "Marta",
+    age: 35,
+    portrait: "Marta",
+  },
+  {
+    key: "Elena II",
+    title: "Continuidad del cuidado",
+    patient: "Elena",
+    age: 68,
+    portrait: "Elena",
+  },
+  {
+    key: "Sofía",
+    title: "Consulta por mareos",
+    patient: "Sofía",
+    age: 41,
+    portrait: "Sofía",
+  },
+];
+
+// Los casos sin historial siguen el formato de siempre: tres paradas.
+const defaultStopCount = 3;
+
+// La razón del motor, dicha sin nombrar el tema del caso.
+const neutralReasons: Record<string, string> = {
+  Elena: "Aún no tenemos evidencia de cómo interpretas resultados de pruebas.",
+};
+
+const otherTerritories = ["Cardiología", "Infectología", "Nefrología"];
+
+function MissionCard({
+  mission,
+  state,
+  reason,
+  decisions,
+  finished,
+}: {
+  mission: (typeof missionCatalog)[number];
+  state: MissionState;
+  reason?: string;
+  decisions: Decision[];
+  finished: boolean;
+}) {
+  const stops =
+    decisions.length || (mission.key === "Elena" ? elenaStops.length : defaultStopCount);
+  const stateLabel =
+    state === "completed"
+      ? "Completado"
+      : state === "recommended"
+        ? "Recomendado para ti"
+        : "Disponible";
+  const isElena = mission.key === "Elena";
+  const headingId = `mission-${mission.key.replace(/\s/g, "-")}`;
+  return (
+    <li className={`mission-card ${state}`}>
+      <article aria-labelledby={headingId}>
+        <div className="mission-head">
+          <Portrait patient={mission.portrait} />
+          <div className="mission-title">
+            <h3 id={headingId}>{mission.title}</h3>
+            <p>
+              {mission.patient}, {mission.age} años
+            </p>
+          </div>
+          <span className="mission-state">
+            {state === "completed" && <CheckIcon />}
+            {state === "recommended" && <CompassIcon />}
+            {stateLabel}
+          </span>
+        </div>
+        {state === "recommended" && reason && (
+          <p className="mission-reason">
+            <CompassIcon />
+            {reason}
+          </p>
+        )}
+        <div className="mission-foot">
+          <ul className="mission-meta">
+            <li>
+              <RouteIcon />
+              {stops} paradas
+            </li>
+            <li>
+              <ClockIcon />~{formatDuration(stops * estimatedSecondsPerDecision)}
+              <span className="sr-only"> estimados</span>
+            </li>
+          </ul>
+          {state === "completed" && (
+            <div aria-label="Resultado de cada parada" className="mission-route" role="group">
+              {decisions.map((mark, index) => (
+                <span className={`recent-mark ${stopMarkState(mark)}`} key={index}>
+                  <StopMark answer={mark} />
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="mission-action">
+            {isElena && !finished ? (
+              <a
+                className={`button-link ${state === "recommended" ? "next-case-button" : "case-start-button"}`}
+                href="/caso/elena"
+              >
+                Empezar caso
+              </a>
+            ) : isElena ? (
+              <>
+                <a className="button-link case-start-button" href="/caso/elena/resultado">
+                  Ver resultado
+                </a>
+                <a className="mission-link" href="/caso/elena">
+                  Volver a jugar
+                </a>
+              </>
+            ) : (
+              <button className="mission-soon" disabled type="button">
+                Disponible muy pronto
+              </button>
+            )}
+          </div>
+        </div>
+      </article>
+    </li>
+  );
+}
+
+function ExplorePage() {
+  const answers = readElenaAnswers();
+  const plan = readCasePlan();
+  const competencies = competenciesAfterElena(answers, plan);
+  const history = buildDecisionHistory(answers, plan);
+  const finished = isCaseFinished(answers);
+  const recommended = finished ? recommendNextCase(competencies).candidate : null;
+  const recommendedKey = recommended ? recommended.mapName : "Elena";
+  const reason = recommended ? recommended.reason : neutralReasons.Elena;
+
+  const missions = missionCatalog.map((mission) => {
+    const decisions = history.filter(({ caseName }) => caseName === mission.key);
+    const state: MissionState =
+      mission.key === recommendedKey
+        ? "recommended"
+        : decisions.length > 0
+          ? "completed"
+          : "available";
+    return { mission, decisions, state, at: summarizeCase(decisions, mission.key).at };
+  });
+  // Primero lo que te recomendamos, luego lo disponible y al final lo completado, lo más reciente primero.
+  const rank: Record<MissionState, number> = { recommended: 0, available: 1, completed: 2 };
+  missions.sort((a, b) => rank[a.state] - rank[b.state] || b.at - a.at);
+
+  return (
+    <div className="student-page">
+      <LoggedTopbar current="explorar" />
+      <main className="explore-main">
+        <p className="breadcrumb">Medicina Interna / Endocrinología</p>
+        <header className="explore-head">
+          <h1>Endocrinología</h1>
+          <p>
+            Casos clínicos para practicar decisiones. No te adelantamos el diagnóstico: lo descubres
+            en el caso.
+          </p>
+        </header>
+        <section aria-labelledby="missions-title" className="explore-missions">
+          <h2 id="missions-title">Misiones</h2>
+          <ul className="mission-list">
+            {missions.map(({ mission, decisions, state }) => (
+              <MissionCard
+                decisions={decisions}
+                finished={finished}
+                key={mission.key}
+                mission={mission}
+                reason={state === "recommended" ? reason : undefined}
+                state={state}
+              />
+            ))}
+          </ul>
+        </section>
+        <section aria-labelledby="territories-title" className="explore-territories">
+          <h2 id="territories-title">Otros territorios</h2>
+          <ul className="territory-cards">
+            {otherTerritories.map((name) => (
+              <li key={name}>
+                <strong>{name}</strong>
+                <span>Muy pronto</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+        <DevDataToggle />
+      </main>
+    </div>
+  );
+}
+
 function Redirect({ to }: { to: string }) {
   useEffect(() => {
     window.location.replace(to);
@@ -2725,6 +2955,7 @@ function Redirect({ to }: { to: string }) {
 
 const routeTitles: Record<string, string> = {
   "/inicio": "Inicio · OddysMedic",
+  "/explorar": "Explorar · OddysMedic",
   "/progreso": "Tu progreso · OddysMedic",
   "/caso/elena": "Consulta por cansancio · OddysMedic",
   "/caso/elena/jugar": "Caso en curso: Consulta por cansancio · OddysMedic",
@@ -2738,6 +2969,10 @@ export default function App() {
 
   if (window.location.pathname === "/inicio") {
     return <StudentHome />;
+  }
+
+  if (window.location.pathname === "/explorar") {
+    return <ExplorePage />;
   }
 
   if (window.location.pathname === "/progreso") {

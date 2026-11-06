@@ -49,6 +49,7 @@ OddysMedic adapta las preguntas y las rutas de aprendizaje según las capacidade
 - **Retratos:** estilo Open Peeps de Pablo Stanley, con licencia CC0 1.0 según el archivo `LICENSE` de `@dicebear/open-peeps` 9.4.2; el código de DiceBear es MIT. Se generan en local con `@dicebear/core` y `@dicebear/collection`, sin peticiones a la API de DiceBear. Los pacientes son ficticios.
 - **Historial de ejemplo:** las 9 respuestas de Lucía y Marta en `src/history.ts`, con su seguridad, sus errores y su θ tras cada intento, son datos sembrados para la demo y no reflejan a ningún alumno real. Los títulos «Confunde el orden de prioridades» y «Confunde causa y desencadenante» se escribieron para este ejemplo y no vienen del banco.
 - **Tiempo estimado:** el «~2 min por decisión» y los «6 minutos» por caso salen de la ficha de Elena («unos 6 minutos», tres paradas); no son una medición.
+- **Misiones de /explorar:** los títulos públicos no nombran el tema ni el diagnóstico (por eso el de Lucía no es «Cetoacidosis…»). Las edades de Rafael, Lucía, Marta y Sofía, el título «Consulta por mareos» y las 3 paradas de los casos aún sin historial son datos de ejemplo.
 - **Sin evidencia de uso:** no hay testimonios, clientes, estudios de eficacia ni métricas reales. No inventarlos.
 - **Cifras ilustrativas:** niveles de competencia, probabilidades, total de casos y progreso son datos de demo, no resultados medidos.
 
