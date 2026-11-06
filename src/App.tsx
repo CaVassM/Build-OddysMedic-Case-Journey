@@ -19,8 +19,11 @@ import {
   type CompetencyState,
 } from "./engine";
 import {
+  caseSeconds,
   competencyPoints,
+  formatDuration,
   formatRelativeDay,
+  startingLevel,
   seededDecisions,
   seededSystemDecisions,
   summarizeCase,
@@ -489,10 +492,31 @@ function StudentHome() {
   const plan = readCasePlan();
   const competencies = competenciesAfterElena(answers, plan);
   const history = buildDecisionHistory(answers, plan);
+  const finished = isCaseFinished(answers);
+  // Del más reciente al más antiguo, según cuándo se respondió su última decisión.
+  const recentCases = [
+    ...(finished
+      ? [
+          {
+            key: "Elena",
+            decisions: history.filter(({ caseName }) => caseName === "Elena"),
+            href: "/caso/elena/resultado",
+            linkLabel: "Ver resultado",
+            patient: "Elena, 68 años",
+            portrait: "Elena" as PortraitName,
+            title: "Consulta por cansancio",
+          },
+        ]
+      : []),
+    ...exampleCases.map(({ caseName, ...recentCase }) => ({
+      key: caseName,
+      decisions: history.filter((decision) => decision.caseName === caseName),
+      ...recentCase,
+    })),
+  ].sort((a, b) => summarizeCase(b.decisions, b.key).at - summarizeCase(a.decisions, a.key).at);
   const homeCompetencies = competencies.filter(({ id }) =>
     elenaStops.some((stop) => stop.competencyId === id),
   );
-  const finished = isCaseFinished(answers);
   const recommended = finished ? recommendNextCase(competencies).candidate : null;
 
   return (
@@ -545,22 +569,8 @@ function StudentHome() {
           <section className="recent-cases">
             <h2>Casos recientes</h2>
             <div className="recent-case-list">
-              {finished && (
-                <RecentCase
-                  decisions={history.filter(({ caseName }) => caseName === "Elena")}
-                  href="/caso/elena/resultado"
-                  linkLabel="Ver resultado"
-                  patient="Elena, 68 años"
-                  portrait="Elena"
-                  title="Consulta por cansancio"
-                />
-              )}
-              {exampleCases.map(({ caseName, ...recentCase }) => (
-                <RecentCase
-                  decisions={history.filter((decision) => decision.caseName === caseName)}
-                  key={caseName}
-                  {...recentCase}
-                />
+              {recentCases.map(({ key, ...recentCase }) => (
+                <RecentCase key={key} {...recentCase} />
               ))}
             </div>
           </section>
@@ -1029,8 +1039,9 @@ function FocusTopbar() {
 const timerHiddenKey = "elena-timer-hidden";
 
 function clock(seconds: number) {
-  const minutes = String(Math.floor(seconds / 60)).padStart(2, "0");
-  return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
+  const total = Math.max(0, Math.round(seconds));
+  const minutes = String(Math.floor(total / 60)).padStart(2, "0");
+  return `${minutes}:${String(total % 60).padStart(2, "0")}`;
 }
 
 // Tiempo transcurrido de la misión, nunca una cuenta atrás. Se puede ocultar y la preferencia se recuerda.
@@ -1765,13 +1776,6 @@ function buildSystemDecisions(
   return log;
 }
 
-function formatDuration(seconds: number) {
-  if (seconds < 60) return `${seconds} s`;
-  if (seconds % 60 === 0) return `${seconds / 60} min`;
-  const rest = String(seconds % 60).padStart(2, "0");
-  return `${Math.floor(seconds / 60)} min ${rest} s`;
-}
-
 function CaseClosedStamp() {
   return (
     <div aria-label="Caso cerrado" className="case-stamp" role="img">
@@ -1865,7 +1869,12 @@ function ElenaCaseResult() {
   const correctCount = answers.filter((answer) => answer?.correct).length;
   const noIdeaCount = answers.filter((answer) => answer?.answer === "No sé").length;
   const wrongCount = answers.length - correctCount - noIdeaCount;
-  const totalSeconds = answers.reduce((sum, answer) => sum + (answer?.time ?? 0), 0);
+  // El tiempo sale del mismo historial que ven /inicio y /progreso: el total es la suma de las paradas.
+  const history = buildDecisionHistory(answers, plan);
+  const stopSeconds = history
+    .filter(({ caseName }) => caseName === "Elena")
+    .map(({ seconds }) => seconds);
+  const totalSeconds = caseSeconds(history, "Elena");
   const estimateSeconds = elenaStops.length * estimatedSecondsPerDecision;
   const {
     candidate: nextCase,
@@ -1913,8 +1922,8 @@ function ElenaCaseResult() {
                   estimateText={`~${formatDuration(estimatedSecondsPerDecision)} estimados`}
                   items={elenaStops.map((item, index) => ({
                     label: item.title,
-                    seconds: answers[index]?.time ?? 0,
-                    text: formatDuration(answers[index]?.time ?? 0),
+                    seconds: stopSeconds[index] ?? 0,
+                    text: formatDuration(stopSeconds[index] ?? 0),
                   }))}
                 />
               </section>
@@ -1951,8 +1960,8 @@ function ElenaCaseResult() {
                         <ResultIcon correct={Boolean(answer?.correct)} />
                       )}
                     </span>
-                    <time dateTime={answer ? `PT${answer.time}S` : undefined}>
-                      {answer ? formatDuration(answer.time) : ""}
+                    <time dateTime={`PT${stopSeconds[index] ?? 0}S`}>
+                      {formatDuration(stopSeconds[index] ?? 0)}
                     </time>
                   </div>
                 );
@@ -2024,15 +2033,13 @@ const stopStateLabels: Record<StopState, string> = {
   pending: "pendiente",
 };
 
-// endInset deja libre el último tramo, en % del ancho, para que la línea llegue plana al latido.
-function wavePath(stops: Array<{ x: number; y: number }>, endInset = 0) {
+function wavePath(stops: Array<{ x: number; y: number }>) {
   return stops
     .map((stop, index) => {
       if (index === 0) return `M${stop.x} ${stop.y}`;
       const previous = stops[index - 1];
-      const x = index === stops.length - 1 ? stop.x - endInset : stop.x;
-      const middle = (previous.x + x) / 2;
-      return `C${middle} ${previous.y} ${middle} ${stop.y} ${x} ${stop.y}`;
+      const middle = (previous.x + stop.x) / 2;
+      return `C${middle} ${previous.y} ${middle} ${stop.y} ${stop.x} ${stop.y}`;
     })
     .join(" ");
 }
@@ -2069,10 +2076,7 @@ function TerritoryMap({
         aria-hidden="true"
       >
         <path d={wavePath(territoryStops.slice(currentIndex))} className="route-pending" />
-        <path
-          d={wavePath(territoryStops.slice(0, currentIndex + 1), 8.5)}
-          className="route-travelled"
-        />
+        <path d={wavePath(territoryStops.slice(0, currentIndex + 1))} className="route-travelled" />
       </svg>
       <ol className="territory-stops">
         {territoryStops.map((stop) => (
@@ -2430,7 +2434,13 @@ function LevelEvolution({
           Nivel actual: <strong>{percentOf(selected)} %</strong> · {answersLabel(selected.n)}
         </span>
       </div>
-      <LevelChart animate={!explored} key={selected.id} name={selected.name} points={points} />
+      <LevelChart
+        animate={!explored}
+        key={selected.id}
+        name={selected.name}
+        points={points}
+        startLevel={startingLevel}
+      />
     </>
   );
 }

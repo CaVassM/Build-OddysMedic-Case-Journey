@@ -1,5 +1,5 @@
 // Historial de decisiones del alumno y métricas calculadas a partir de él. No contiene cifras fijas de la interfaz.
-import { probability, seedCompetencies, sigma, type CompetencyId } from "./engine";
+import { sigma, type CompetencyId } from "./engine";
 
 export type Decision = {
   caseName: string;
@@ -141,14 +141,12 @@ export type SystemDecision = {
   chance?: number;
 };
 
+// Esta decisión no tiene un P propio: la sugerencia de Elena nació de la falta de evidencia, no de una probabilidad.
 export const seededSystemDecisions: SystemDecision[] = [
   {
     kind: "Siguiente caso",
     choice: "Elena",
     reason: "aún no tenemos evidencia de cómo interpretas pruebas tiroideas",
-    chance: Math.round(
-      probability(seedCompetencies.find(({ id }) => id === "interpretacion")!.theta, 0) * 100,
-    ),
   },
 ];
 
@@ -211,6 +209,9 @@ export type TrailPoint = {
   at: number;
 };
 
+/** Nivel de partida de toda competencia, antes de la primera respuesta: θ = 0. */
+export const startingLevel = Math.round(sigma(0) * 100);
+
 /** Un punto por intento: nivel tras responder y con qué resultado. */
 export function competencyPoints(decisions: Decision[], competencyId: CompetencyId): TrailPoint[] {
   return decisions
@@ -232,7 +233,7 @@ export function summarizeCase(decisions: Decision[], caseName: string) {
   return {
     decisions: own,
     correct: own.filter((decision) => decision.correct).length,
-    seconds: own.reduce((sum, decision) => sum + decision.seconds, 0),
+    seconds: caseSeconds(decisions, caseName),
     competencies: [...new Set(own.map((decision) => decision.competencyId))],
     at: own.reduce((latest, decision) => Math.max(latest, decision.at), 0),
   };
@@ -253,4 +254,21 @@ export function formatRelativeDay(at: number, now = Date.now()) {
   if (days === 1) return "ayer";
   if (days < 28) return `hace ${days} días`;
   return formatShortDate(at);
+}
+
+/** Un solo formato de tiempo: «45 s», «2 min», «5 min 02 s». Redondea antes de repartir, así los segundos nunca llegan a 60. */
+export function formatDuration(totalSeconds: number) {
+  const total = Math.max(0, Math.round(totalSeconds));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  if (minutes === 0) return `${seconds} s`;
+  if (seconds === 0) return `${minutes} min`;
+  return `${minutes} min ${String(seconds).padStart(2, "0")} s`;
+}
+
+/** Tiempo de un caso: la suma de lo que tardó cada parada. Es la única fuente para /inicio, /resultado y /progreso. */
+export function caseSeconds(decisions: Decision[], caseName: string) {
+  return decisions
+    .filter((decision) => decision.caseName === caseName)
+    .reduce((sum, decision) => sum + decision.seconds, 0);
 }

@@ -87,7 +87,7 @@
 .nav-content,
 .hero-inner,
 .section-inner {
-  width: min(1200px, calc(100% - 48px));
+  width: min(1200px, calc(100% - 64px));
   margin: 0 auto;
 }
 
@@ -408,8 +408,9 @@ article.specialty-card .portrait {
 }
 .logged-topbar .nav-content {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  width: min(1200px, calc(100% - 48px));
+  /* Las columnas laterales nunca bajan de lo que miden: el logo no puede montarse sobre «Inicio». */
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
+  width: min(1200px, calc(100% - 64px));
 }
 .logged-topbar .nav-content > a {
   justify-self: start;
@@ -542,7 +543,7 @@ article.specialty-card .portrait {
   }
 }
 .student-main {
-  width: min(1200px, calc(100% - 48px));
+  width: min(1200px, calc(100% - 64px));
   margin: 0 auto;
   padding: 64px 0 96px;
   display: grid;
@@ -761,7 +762,7 @@ article.specialty-card .portrait {
   background: var(--paper);
 }
 .case-intro {
-  width: min(1200px, calc(100% - 48px));
+  width: min(1200px, calc(100% - 64px));
   margin: 0 auto;
   padding: 32px 0 128px;
 }
@@ -1026,7 +1027,7 @@ article.specialty-card .portrait {
   background: var(--paper);
 }
 .focus-nav {
-  width: min(1200px, calc(100% - 48px));
+  width: min(1200px, calc(100% - 64px));
   height: 100%;
   margin: 0 auto;
   display: flex;
@@ -1064,7 +1065,7 @@ article.specialty-card .portrait {
   text-decoration: underline;
 }
 .play-main {
-  width: min(1200px, calc(100% - 48px));
+  width: min(1200px, calc(100% - 64px));
   margin: 0 auto;
   padding: 18px 0 64px;
 }
@@ -1679,7 +1680,7 @@ article.specialty-card .portrait {
   background: var(--paper);
 }
 .result-main {
-  width: min(1200px, calc(100% - 48px));
+  width: min(1200px, calc(100% - 64px));
   margin: 0 auto;
   padding: 92px 0 96px;
 }
@@ -2058,7 +2059,7 @@ article.specialty-card .portrait {
 }
 
 .progress-main {
-  width: min(1200px, calc(100% - 48px));
+  width: min(1200px, calc(100% - 64px));
   margin: 0 auto;
   padding: 64px 0 96px;
 }
@@ -2409,6 +2410,9 @@ article.specialty-card .portrait {
 }
 .ring-fill {
   animation: ring-fill 600ms var(--ease-out) backwards;
+}
+.stat-ring.still .ring-fill {
+  animation: none;
 }
 @keyframes ring-fill {
   from {
@@ -3605,9 +3609,6 @@ button.remember-head {
   .student-main {
     grid-template-columns: minmax(0, 1fr);
   }
-  .territory-chip {
-    display: none;
-  }
   .metric-pair {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -4070,6 +4071,19 @@ button.remember-head {
     font-size: 38px;
   }
   .play-timer [role="timer"] small {
+    display: none;
+  }
+}
+
+/* Barra superior: primero se va el chip del territorio y después el texto del perfil. */
+@media (max-width: 1000px) {
+  .territory-chip {
+    display: none;
+  }
+}
+@media (max-width: 800px) {
+  .account-name,
+  .account-chevron {
     display: none;
   }
 }

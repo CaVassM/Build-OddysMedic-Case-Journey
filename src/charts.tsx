@@ -46,6 +46,16 @@ export function usePrefersReducedMotion() {
   return reduced;
 }
 
+/**
+ * Los gráficos y anillos se animan solo si se puede ver la animación: sin movimiento reducido y con la pestaña
+ * visible al montarse. En una pestaña en segundo plano el reloj de animación no avanza y quedarían vacíos.
+ */
+export function useChartAnimation() {
+  const reduced = usePrefersReducedMotion();
+  const [visibleOnMount] = useState(() => document.visibilityState === "visible");
+  return !reduced && visibleOnMount;
+}
+
 const animationMs = 600;
 
 function pointLabel(wrong: boolean, noIdea: boolean) {
@@ -71,10 +81,11 @@ export function StatRing({
   children: ReactNode;
   delay?: number;
 }) {
+  const motion = useChartAnimation();
   const gap = segments.filter(({ fraction }) => fraction > 0).length > 1 ? 3 : 0;
   let start = 0;
   return (
-    <div className="stat-ring">
+    <div className={`stat-ring ${motion ? "" : "still"}`}>
       <svg aria-hidden="true" viewBox="0 0 100 100">
         <circle
           className={segments.length === 0 ? "ring-track dashed" : "ring-track"}
@@ -112,13 +123,18 @@ export function StatRing({
 /* Evolución del nivel                                                         */
 /* -------------------------------------------------------------------------- */
 
-type LevelDatum = TrailPoint & { fullName?: string };
+type LevelDatum = TrailPoint & { start?: boolean };
 
 type DotProps = { cx?: number; cy?: number; payload?: LevelDatum; index?: number };
 
 function LevelDot({ cx, cy, payload, size }: DotProps & { size: number }) {
   if (cx === undefined || cy === undefined || !payload) return null;
   const common = { cx, cy, r: size };
+  if (payload.start) {
+    return (
+      <circle {...common} fill={colors.system} r={size - 1} stroke="#ffffff" strokeWidth={2} />
+    );
+  }
   if (payload.noIdea) {
     return <circle {...common} fill={colors.neutral} stroke={colors.neutralInk} strokeWidth={2} />;
   }
@@ -137,6 +153,14 @@ function LevelTooltip({
 }) {
   const point = payload?.[0]?.payload;
   if (!active || !point) return null;
+  if (point.start) {
+    return (
+      <div className="chart-tooltip">
+        <strong>Inicio</strong>
+        <span>Nivel de partida · {point.level} %</span>
+      </div>
+    );
+  }
   const result = pointLabel(!point.correct, point.noIdea);
   return (
     <div className="chart-tooltip">
@@ -157,8 +181,8 @@ const bands = [
 
 function chartTicks(count: number) {
   const step = count <= 10 ? 1 : Math.ceil(count / 8);
-  const ticks: number[] = [];
-  for (let n = 1; n <= count; n += step) ticks.push(n);
+  const ticks: number[] = [0];
+  for (let n = step; n <= count; n += step) ticks.push(n);
   if (ticks[ticks.length - 1] !== count) ticks.push(count);
   return ticks;
 }
@@ -166,23 +190,39 @@ function chartTicks(count: number) {
 export function LevelChart({
   name,
   points,
+  startLevel,
   animate = true,
 }: {
   name: string;
   points: TrailPoint[];
+  /** Nivel de partida, antes de la primera respuesta. */
+  startLevel: number;
   /** Falso al cambiar de competencia: el gráfico se dibuja una sola vez, al entrar. */
   animate?: boolean;
 }) {
-  const reduced = usePrefersReducedMotion();
+  const motion = useChartAnimation();
   const size = points.length > 14 ? 4.5 : 6;
   const last = Math.max(points.length, 2);
+  const data: LevelDatum[] = [
+    {
+      n: 0,
+      level: startLevel,
+      correct: false,
+      noIdea: false,
+      caseName: "",
+      stop: 0,
+      at: 0,
+      start: true,
+    },
+    ...points,
+  ];
   return (
     <figure className="level-chart">
       <div className="level-chart-plot">
         <ResponsiveContainer height={300} width="100%">
           <LineChart
             accessibilityLayer
-            data={points}
+            data={data}
             margin={{ top: 8, right: 16, bottom: 4, left: 0 }}
           >
             {bands.map((band) => (
@@ -208,9 +248,19 @@ export function LevelChart({
               allowDecimals={false}
               axisLine={{ stroke: "#c9c6e3" }}
               dataKey="n"
-              domain={[1, last]}
+              domain={[0, last]}
+              height={52}
+              label={{
+                value: "Respuesta",
+                position: "insideBottom",
+                offset: 0,
+                fill: colors.muted,
+                fontSize: 13,
+                fontWeight: 700,
+              }}
               padding={{ left: 14, right: 14 }}
               tick={{ fill: colors.muted, fontSize: 13 }}
+              tickFormatter={(value) => (value === 0 ? "Inicio" : String(value))}
               tickLine={false}
               ticks={chartTicks(points.length)}
               type="number"
@@ -243,7 +293,7 @@ export function LevelChart({
                   size={size}
                 />
               )}
-              isAnimationActive={animate && !reduced}
+              isAnimationActive={animate && motion}
               stroke={colors.system}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -254,6 +304,12 @@ export function LevelChart({
         </ResponsiveContainer>
       </div>
       <ul aria-hidden="true" className="chart-legend">
+        <li>
+          <svg viewBox="0 0 16 16">
+            <circle cx="8" cy="8" fill={colors.system} r="4.5" stroke="#fff" strokeWidth="2" />
+          </svg>
+          Inicio
+        </li>
         <li>
           <svg viewBox="0 0 16 16">
             <circle
@@ -300,6 +356,13 @@ export function LevelChart({
             </tr>
           </thead>
           <tbody>
+            <tr>
+              <th scope="row">Inicio</th>
+              <td>Nivel de partida</td>
+              <td>—</td>
+              <td>—</td>
+              <td>{startLevel} %</td>
+            </tr>
             {points.map((point) => (
               <tr key={point.n}>
                 <th scope="row">{point.n}</th>
@@ -363,7 +426,7 @@ export function ConfidenceChart({
   /** Porcentaje de aciertos del alumno en total, como marca de referencia. */
   average: number | null;
 }) {
-  const reduced = usePrefersReducedMotion();
+  const motion = useChartAnimation();
   const data: ConfidenceDatum[] = rows.map(({ level, count, right, rate }) => ({
     level,
     count,
@@ -427,7 +490,7 @@ export function ConfidenceChart({
             animationEasing="ease-out"
             barSize={24}
             dataKey="correctShare"
-            isAnimationActive={!reduced}
+            isAnimationActive={motion}
             radius={[6, 0, 0, 6]}
             stackId="share"
             stroke={colors.paper}
@@ -442,7 +505,7 @@ export function ConfidenceChart({
             animationEasing="ease-out"
             barSize={24}
             dataKey="wrongShare"
-            isAnimationActive={!reduced}
+            isAnimationActive={motion}
             radius={[0, 6, 6, 0]}
             stackId="share"
             stroke={colors.paper}
@@ -551,7 +614,7 @@ export function OutcomeDonut({
   wrong: number;
   noIdea: number;
 }) {
-  const reduced = usePrefersReducedMotion();
+  const motion = useChartAnimation();
   const total = correct + wrong + noIdea;
   const slices = [
     { name: "Correctas", value: correct, color: colors.correct },
@@ -574,7 +637,7 @@ export function OutcomeDonut({
               dataKey="value"
               endAngle={-270}
               innerRadius={62}
-              isAnimationActive={!reduced}
+              isAnimationActive={motion}
               nameKey="name"
               outerRadius={86}
               paddingAngle={visible.length > 1 ? 3 : 0}
@@ -677,7 +740,7 @@ export function TimeBars({
   estimate: number;
   estimateText: string;
 }) {
-  const reduced = usePrefersReducedMotion();
+  const motion = useChartAnimation();
   const max = Math.max(estimate * 1.35, ...items.map(({ seconds }) => seconds * 1.25));
   return (
     <figure className="time-bars">
@@ -732,7 +795,7 @@ export function TimeBars({
             barSize={22}
             dataKey="seconds"
             fill={colors.system}
-            isAnimationActive={!reduced}
+            isAnimationActive={motion}
             radius={[0, 6, 6, 0]}
           />
         </BarChart>
