@@ -149,14 +149,22 @@ function SpecialtyCard({
   active?: boolean;
   children: ReactNode;
 }) {
-  return (
-    <article className={`specialty-card ${active ? "active" : ""}`}>
+  const content = (
+    <>
       <SpecialtyIcon>{children}</SpecialtyIcon>
       <div>
         <h3>{title}</h3>
         <p>{description}</p>
       </div>
-    </article>
+    </>
+  );
+  // Solo la especialidad disponible lleva a algún sitio; las demás dicen «Muy pronto».
+  return active ? (
+    <a className="specialty-card active" href="/inicio">
+      {content}
+    </a>
+  ) : (
+    <article className="specialty-card">{content}</article>
   );
 }
 
@@ -428,26 +436,22 @@ function ElenaCaseIntro() {
       <LoggedTopbar />
       <main className="case-intro">
         <p className="breadcrumb">Endocrinología / {elenaPatient.caseTitle}</p>
-        <div className="case-hero">
-          <header className="patient-card">
-            <span className="patient-initial">{elenaPatient.initial}</span>
-            <div className="patient-card-body">
-              <h1>{elenaPatient.caseTitle}</h1>
-              <p className="patient-name">{elenaPatient.name}</p>
-              <ul className="patient-chips">
-                {elenaPatient.chips.map((chip) => (
-                  <li key={chip}>{chip}</li>
-                ))}
-              </ul>
-              <div className="patient-tags">
-                <span className="patient-tag">Paciente ficticia</span>
-                <span className="patient-tag">Contenido sin validación médica</span>
-              </div>
+        <header className="patient-card">
+          <span className="patient-initial">{elenaPatient.initial}</span>
+          <div className="patient-card-body">
+            <h1>{elenaPatient.caseTitle}</h1>
+            <p className="patient-name">{elenaPatient.name}</p>
+            <ul className="patient-chips">
+              {elenaPatient.chips.map((chip) => (
+                <li key={chip}>{chip}</li>
+              ))}
+            </ul>
+            <div className="patient-tags">
+              <span className="patient-tag">Paciente ficticia</span>
+              <span className="patient-tag">Contenido sin validación médica</span>
             </div>
-          </header>
+          </div>
           <div className="case-start">
-            <div className="result-orbit result-orbit-one" />
-            <div className="result-orbit result-orbit-two" />
             <a
               className="button-link case-start-button"
               href="/caso/elena/jugar"
@@ -460,7 +464,7 @@ function ElenaCaseIntro() {
               Volver al inicio
             </a>
           </div>
-        </div>
+        </header>
         <div className="case-details">
           <section className="case-intro-section route-section">
             <h2>Tu ruta</h2>
@@ -789,7 +793,7 @@ function PlayRoute({ stop, answers }: { stop: number; answers: Array<StopAnswer 
   );
 }
 
-type LabRange = { position: number; out?: "high" | "low" };
+type LabRange = { low: number; high: number; position: number; out?: "high" | "low" };
 
 // El intervalo de referencia ocupa este tramo de la barra; lo que queda fuera se dibuja al borde.
 const rangeStart = 28;
@@ -798,18 +802,21 @@ const rangeEnd = 72;
 function rangeFromValues(value: number, low: number, high: number): LabRange {
   const position = rangeStart + ((value - low) / (high - low)) * (rangeEnd - rangeStart);
   return {
-    position: Math.min(96, Math.max(4, position)),
+    low,
+    high,
+    position: Math.round(Math.min(96, Math.max(4, position)) * 10) / 10,
     out: value > high ? "high" : value < low ? "low" : undefined,
   };
 }
 
-// T4 libre no tiene intervalo numérico en el caso: el punto solo indica que está por debajo.
+// Rangos de referencia del banco de casos (EVENTOS_CLINICOS).
 const labRanges: Record<string, LabRange> = {
   TSH: rangeFromValues(24, 0.4, 4),
-  "T4 libre": { position: 10, out: "low" },
+  "T4 libre": rangeFromValues(0.5, 0.8, 1.8),
+  Hemoglobina: rangeFromValues(13, 12, 16),
 };
 
-function RangeBar({ position, out }: LabRange) {
+function RangeBar({ low, high, position, out }: LabRange) {
   const connector =
     out === "high"
       ? { left: `${rangeEnd}%`, width: `${position - rangeEnd}%` }
@@ -824,6 +831,12 @@ function RangeBar({ position, out }: LabRange) {
       />
       {connector && <span className="range-connector" style={connector} />}
       <span className={`range-dot ${out ? "out" : ""}`} style={{ left: `${position}%` }} />
+      <span className="range-limit" style={{ left: `${rangeStart}%` }}>
+        {low}
+      </span>
+      <span className="range-limit" style={{ left: `${rangeEnd}%` }}>
+        {high}
+      </span>
     </div>
   );
 }
@@ -844,14 +857,21 @@ function KnowledgeRow({
       className={`knowledge-row ${learned ? "learned-row" : ""} ${value.length > 30 ? "stacked" : ""} ${range?.out ? "out-of-range" : ""}`}
     >
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong>
+        {value}
+        {range && (
+          <span className="sr-only">
+            . Referencia: {range.low} a {range.high}
+          </span>
+        )}
+      </strong>
       {range && <RangeBar {...range} />}
     </div>
   );
 }
 
 function ElenaKnowledge({ stop, variantId }: { stop: number; variantId: VariantId }) {
-  const [tab, setTab] = useState("Historia");
+  const [tab, setTab] = useState("Laboratorio");
   const guided = variantId === "guiada";
   const details: Record<string, string[][]> = {
     Historia: [
@@ -882,7 +902,7 @@ function ElenaKnowledge({ stop, variantId }: { stop: number; variantId: VariantI
         }
       : {}),
     Laboratorio: [
-      ["TSH", "24 mUI/L, alta (ref. 0.4–4)"],
+      ["TSH", "24 mUI/L, alta"],
       ["T4 libre", "0.5 ng/dL, baja"],
       ...(guided ? [["Hemoglobina", "13 g/dL"]] : []),
     ],

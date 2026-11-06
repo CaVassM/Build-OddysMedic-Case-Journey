@@ -63,6 +63,8 @@ There is no test runner or linter. Check changes with `pnpm exec tsc --noEmit` a
 
 This project uses **Tailwind CSS v4** through the `@tailwindcss/vite` plugin configured in `vite.config.ts`. `src/index.css` imports Tailwind with `@import 'tailwindcss';`. The existing screens use hand-written classes with fixed hex colors from `src/index.css`, not Tailwind utility classes (`sr-only` is the exception), so follow that pattern when extending them. This scaffold does not need a Tailwind config file or PostCSS config.
 
+Primary buttons are #2E2A78 with white text. Use aquamarine #43D6BE for buttons only on indigo backgrounds (the landing hero and the "Tu siguiente caso" cards), because elsewhere aquamarine means a correct answer. Lab reference bands stay neutral for the same reason.
+
 Fonts load with `<link>` tags in `index.html` (`preconnect` plus `stylesheet`, with `display=swap`), **never with `@import` in CSS**. Request Bricolage Grotesque as `family=Bricolage+Grotesque:wght@700;800`; the earlier request with optical-size and width axes was rejected by Google Fonts. Font-family defaults stay in `src/index.css`, whose only `@import` is Tailwind.
 
 Motion lives in `src/index.css`, using the `--ease-out` and `--ease-in-out` curves. The landing page's only load animation is the hero route. On `/caso/elena/jugar`, answering plays one sequence: options recolor in a cascade, the explanation enters, then the route segment draws. Picking an option is instant, and `prefers-reduced-motion` keeps only opacity.
