@@ -1,0 +1,12 @@
+{
+  "title": "OddysMedic",
+  "language": "es",
+  "description": "Ayuda a estudiantes de medicina a practicar el razonamiento clínico con casos interactivos que avanzan por diagnóstico, tratamiento y seguimiento.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
