@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import {
   applyAnswer,
   closestToTarget,
@@ -9,6 +17,27 @@ import {
   type CompetencyId,
   type CompetencyState,
 } from "./engine";
+import { worstCasePatient, worstCaseStop } from "./worstCase";
+
+// Solo en desarrollo y solo si la URL lo pide: una demo normal no ve ni el selector ni estos datos.
+const devDataParam = import.meta.env.DEV
+  ? new URLSearchParams(window.location.search).get("data")
+  : null;
+const useWorstCase = devDataParam === "worst";
+
+function DevDataToggle() {
+  if (!devDataParam) return null;
+  return (
+    <div className="dev-data-toggle">
+      <a className={useWorstCase ? "" : "active"} href="?data=demo">
+        Demo data
+      </a>
+      <a className={useWorstCase ? "active" : ""} href="?data=worst">
+        Worst case
+      </a>
+    </div>
+  );
+}
 
 type StopState = "done" | "current" | "pending";
 
@@ -27,11 +56,32 @@ function CompassLogo() {
   );
 }
 
+const heroRoutePath = "M28 319c23-47 78-20 80-87 2-45-39-63-4-111 36-49 98 1 135-47";
+
+// La ruta es punteada: una máscara con el mismo trazo la revela de principio a fin.
 function Route({ className = "" }: { className?: string }) {
   return (
     <svg className={`route ${className}`} viewBox="0 0 380 355" fill="none" aria-hidden="true">
+      <mask
+        id="hero-route-reveal"
+        maskUnits="userSpaceOnUse"
+        x="0"
+        y="-20"
+        width="380"
+        height="375"
+      >
+        <path
+          className="hero-route-draw"
+          d={heroRoutePath}
+          pathLength="1"
+          stroke="white"
+          strokeWidth="10"
+        />
+      </mask>
       <path
-        d="M28 319c23-47 78-20 80-87 2-45-39-63-4-111 36-49 98 1 135-47 25-32 8-70 62-84"
+        className="hero-route-dashes"
+        d={heroRoutePath}
+        mask="url(#hero-route-reveal)"
         stroke="#43D6BE"
         strokeWidth="3"
         strokeDasharray="7 8"
@@ -40,6 +90,15 @@ function Route({ className = "" }: { className?: string }) {
       <circle cx="28" cy="319" r="9" fill="#43D6BE" />
       <circle cx="108" cy="232" r="11" fill="white" stroke="#43D6BE" strokeWidth="5" />
       <circle cx="239" cy="74" r="8" fill="white" stroke="#C9C6E3" strokeWidth="3" />
+      <text x="14" y="348">
+        Diagnóstico
+      </text>
+      <text x="90" y="237" textAnchor="end">
+        Tratamiento
+      </text>
+      <text x="255" y="79">
+        Seguimiento
+      </text>
     </svg>
   );
 }
@@ -168,8 +227,15 @@ function CompetencyTrack({ competency }: { competency: CompetencyState }) {
 }
 
 function CompetencyStatus({ competency }: { competency: CompetencyState }) {
-  const { label, reinforce } = describeCompetency(competency);
-  return <small className={reinforce ? "status-reinforce" : ""}>{label}</small>;
+  const { label, reinforce, hasEvidence } = describeCompetency(competency);
+  const tone = !hasEvidence
+    ? "no-evidence"
+    : reinforce
+      ? "reinforce"
+      : label === "Adecuado"
+        ? "good"
+        : "progressing";
+  return <small className={`status-chip ${tone}`}>{label}</small>;
 }
 
 function Competency({ competency }: { competency: CompetencyState }) {
@@ -179,6 +245,57 @@ function Competency({ competency }: { competency: CompetencyState }) {
       <CompetencyTrack competency={competency} />
       <CompetencyStatus competency={competency} />
     </div>
+  );
+}
+
+// Historial ilustrativo: el resultado de cada parada coincide con el total de aciertos del caso.
+const recentCases: Array<{ title: string; patient: string; marks: StopAnswer[] }> = [
+  {
+    title: "Cetoacidosis tras gastroenteritis",
+    patient: "Lucía, 24 años",
+    marks: [
+      { correct: true, answer: "" },
+      { correct: false, answer: "" },
+      { correct: true, answer: "" },
+    ],
+  },
+  {
+    title: "Palpitaciones y pérdida de peso",
+    patient: "Marta, 35 años",
+    marks: [
+      { correct: true, answer: "" },
+      { correct: true, answer: "" },
+      { correct: true, answer: "" },
+    ],
+  },
+];
+
+function RecentCase({
+  title,
+  patient,
+  marks,
+}: {
+  title: string;
+  patient: string;
+  marks: StopAnswer[];
+}) {
+  return (
+    <article className="recent-case">
+      <div>
+        <h3>{title}</h3>
+        <p>{patient}</p>
+      </div>
+      <div className="recent-result">
+        <div className="recent-route">
+          {marks.map((mark, index) => (
+            <span className={`recent-mark ${stopMarkState(mark)}`} key={index}>
+              <StopMark answer={mark} />
+            </span>
+          ))}
+        </div>
+        <span>{marks.filter((mark) => mark.correct).length} de 3 aciertos</span>
+      </div>
+    </article>
   );
 }
 
@@ -241,28 +358,15 @@ function StudentHome() {
             <h2>Casos recientes</h2>
             <div className="recent-case-list">
               {finished && (
-                <article className="recent-case">
-                  <div>
-                    <h3>Consulta por cansancio</h3>
-                    <p>Elena, 68 años</p>
-                  </div>
-                  <span>{answers.filter((answer) => answer?.correct).length} de 3 aciertos</span>
-                </article>
+                <RecentCase
+                  title="Consulta por cansancio"
+                  patient="Elena, 68 años"
+                  marks={answers}
+                />
               )}
-              <article className="recent-case">
-                <div>
-                  <h3>Cetoacidosis tras gastroenteritis</h3>
-                  <p>Lucía, 24 años</p>
-                </div>
-                <span>2 de 3 aciertos</span>
-              </article>
-              <article className="recent-case">
-                <div>
-                  <h3>Palpitaciones y pérdida de peso</h3>
-                  <p>Marta, 35 años</p>
-                </div>
-                <span>3 de 3 aciertos</span>
-              </article>
+              {recentCases.map((recentCase) => (
+                <RecentCase key={recentCase.title} {...recentCase} />
+              ))}
             </div>
           </section>
         </section>
@@ -301,6 +405,15 @@ function CaseRoute() {
   );
 }
 
+const elenaPatient = useWorstCase
+  ? worstCasePatient
+  : {
+      initial: "E",
+      name: "Elena",
+      caseTitle: "Consulta por cansancio",
+      chips: ["68 años", "Mujer", "Consulta ambulatoria", "Cansancio persistente"],
+    };
+
 function ElenaCaseIntro() {
   const [learnerId, setLearnerId] = useState<LearnerId>(() => readCasePlan()?.learnerId ?? "bruno");
 
@@ -314,35 +427,55 @@ function ElenaCaseIntro() {
     <div className="case-intro-page">
       <LoggedTopbar />
       <main className="case-intro">
-        <p className="breadcrumb">Endocrinología / Consulta por cansancio</p>
-        <header className="patient-header">
-          <span className="patient-initial">E</span>
-          <div>
-            <h1>Consulta por cansancio</h1>
-            <p>Elena, 68 años, mujer. Consulta ambulatoria.</p>
-            <div className="patient-tags">
-              <span className="patient-tag">Paciente ficticia</span>
-              <span className="patient-tag">Contenido sin validación médica</span>
+        <p className="breadcrumb">Endocrinología / {elenaPatient.caseTitle}</p>
+        <div className="case-hero">
+          <header className="patient-card">
+            <span className="patient-initial">{elenaPatient.initial}</span>
+            <div className="patient-card-body">
+              <h1>{elenaPatient.caseTitle}</h1>
+              <p className="patient-name">{elenaPatient.name}</p>
+              <ul className="patient-chips">
+                {elenaPatient.chips.map((chip) => (
+                  <li key={chip}>{chip}</li>
+                ))}
+              </ul>
+              <div className="patient-tags">
+                <span className="patient-tag">Paciente ficticia</span>
+                <span className="patient-tag">Contenido sin validación médica</span>
+              </div>
             </div>
+          </header>
+          <div className="case-start">
+            <div className="result-orbit result-orbit-one" />
+            <div className="result-orbit result-orbit-two" />
+            <a
+              className="button-link case-start-button"
+              href="/caso/elena/jugar"
+              onClick={startCase}
+            >
+              Empezar caso
+            </a>
+            <span>Unos 6 minutos.</span>
+            <a className="case-start-back" href="/inicio">
+              Volver al inicio
+            </a>
           </div>
-        </header>
-        <section className="case-intro-section">
-          <h2>Motivo de consulta</h2>
-          <p>Cansancio persistente</p>
-        </section>
-        <section className="case-intro-section route-section">
-          <h2>Tu ruta</h2>
-          <CaseRoute />
-        </section>
-        <section className="case-intro-section practice-section">
-          <h2>Qué vas a practicar</h2>
-          <p>Interpretación de resultados, manejo terapéutico y selección de pruebas.</p>
-        </section>
-        <div className="case-info-strip">
-          <p>Puedes responder «No sé»: también nos ayuda a elegir tu siguiente caso.</p>
-          <span>Unos 6 minutos.</span>
+        </div>
+        <div className="case-details">
+          <section className="case-intro-section route-section">
+            <h2>Tu ruta</h2>
+            <CaseRoute />
+          </section>
+          <section className="case-intro-section practice-section">
+            <h2>Qué vas a practicar</h2>
+            <p>Interpretación de resultados, manejo terapéutico y selección de pruebas.</p>
+          </section>
+          <div className="case-info-strip">
+            <p>Puedes responder «No sé»: también nos ayuda a elegir tu siguiente caso.</p>
+          </div>
         </div>
         <div className="demo-learner">
+          <span className="demo-learner-tag">Demo</span>
           <span id="demo-learner-label">Probar como:</span>
           <div
             aria-labelledby="demo-learner-label"
@@ -362,16 +495,8 @@ function ElenaCaseIntro() {
               </label>
             ))}
           </div>
-          <span className="patient-tag">Solo para la demo</span>
         </div>
-        <footer className="case-intro-actions">
-          <a className="back-link" href="/inicio">
-            Volver al inicio
-          </a>
-          <a className="button-link case-start-button" href="/caso/elena/jugar" onClick={startCase}>
-            Empezar caso
-          </a>
-        </footer>
+        <DevDataToggle />
       </main>
     </div>
   );
@@ -379,7 +504,7 @@ function ElenaCaseIntro() {
 
 type CaseOption = { text: string; explanation: string; correct?: boolean };
 
-const elenaStops: Array<{
+const baseElenaStops: Array<{
   title: string;
   competency: string;
   competencyId: CompetencyId;
@@ -447,6 +572,10 @@ const elenaStops: Array<{
     reminder: "No confundas la prueba de seguimiento con el estudio de la causa.",
   },
 ];
+
+const elenaStops = useWorstCase
+  ? [{ ...baseElenaStops[0], ...worstCaseStop }, baseElenaStops[1], baseElenaStops[2]]
+  : baseElenaStops;
 
 type VariantId = "estandar" | "guiada";
 type LearnerId = "bruno" | "menos-experiencia";
@@ -622,7 +751,7 @@ function FocusTopbar() {
         <a href="/inicio" aria-label="Ir al inicio">
           <CompassLogo />
         </a>
-        <span>Consulta por cansancio</span>
+        <span title={elenaPatient.caseTitle}>{elenaPatient.caseTitle}</span>
         <a href="/inicio">Salir</a>
       </div>
     </header>
@@ -630,27 +759,71 @@ function FocusTopbar() {
 }
 
 function PlayRoute({ stop, answers }: { stop: number; answers: Array<StopAnswer | undefined> }) {
-  const currentAnswer = answers[stop];
-  const completedSegments = currentAnswer ? stop + 1 : stop;
-
   return (
     <div className="play-route">
-      <div className={`play-route-line line-${completedSegments}`} />
-      {elenaStops.map((item, index) => {
-        const answer = answers[index];
-        const complete = index <= stop && answer;
-        return (
-          <div className="play-stop" key={item.title}>
-            <span
-              className={`play-dot ${index === stop && !complete ? "current" : ""} ${complete ? stopMarkState(answer) : ""}`}
-            >
-              {complete && <StopMark answer={answer} />}
-            </span>
-            <span>{item.title}</span>
-          </div>
-        );
-      })}
+      <div className="play-track">
+        {elenaStops.map((item, index) => {
+          const answer = answers[index];
+          const complete = index <= stop && answer;
+          return (
+            <Fragment key={item.title}>
+              <div className={`play-stop ${index === stop ? "is-current" : ""}`}>
+                <span
+                  className={`play-dot ${index === stop && !complete ? "current" : ""} ${complete ? stopMarkState(answer) : ""}`}
+                >
+                  {complete && <StopMark answer={answer} />}
+                </span>
+                <span className="play-stop-label">{item.title}</span>
+              </div>
+              {index < elenaStops.length - 1 && (
+                <div className={`play-segment ${answer ? "drawn" : ""}`}>
+                  <span />
+                </div>
+              )}
+            </Fragment>
+          );
+        })}
+      </div>
       <strong className="stop-count">Parada {stop + 1} de 3</strong>
+    </div>
+  );
+}
+
+type LabRange = { position: number; out?: "high" | "low" };
+
+// El intervalo de referencia ocupa este tramo de la barra; lo que queda fuera se dibuja al borde.
+const rangeStart = 28;
+const rangeEnd = 72;
+
+function rangeFromValues(value: number, low: number, high: number): LabRange {
+  const position = rangeStart + ((value - low) / (high - low)) * (rangeEnd - rangeStart);
+  return {
+    position: Math.min(96, Math.max(4, position)),
+    out: value > high ? "high" : value < low ? "low" : undefined,
+  };
+}
+
+// T4 libre no tiene intervalo numérico en el caso: el punto solo indica que está por debajo.
+const labRanges: Record<string, LabRange> = {
+  TSH: rangeFromValues(24, 0.4, 4),
+  "T4 libre": { position: 10, out: "low" },
+};
+
+function RangeBar({ position, out }: LabRange) {
+  const connector =
+    out === "high"
+      ? { left: `${rangeEnd}%`, width: `${position - rangeEnd}%` }
+      : out === "low"
+        ? { left: `${position}%`, width: `${rangeStart - position}%` }
+        : null;
+  return (
+    <div aria-hidden="true" className="range-bar">
+      <span
+        className="range-band"
+        style={{ left: `${rangeStart}%`, width: `${rangeEnd - rangeStart}%` }}
+      />
+      {connector && <span className="range-connector" style={connector} />}
+      <span className={`range-dot ${out ? "out" : ""}`} style={{ left: `${position}%` }} />
     </div>
   );
 }
@@ -659,17 +832,20 @@ function KnowledgeRow({
   label,
   value,
   learned = false,
+  range,
 }: {
   label: string;
   value: string;
   learned?: boolean;
+  range?: LabRange;
 }) {
   return (
     <div
-      className={`knowledge-row ${learned ? "learned-row" : ""} ${value.length > 30 ? "stacked" : ""}`}
+      className={`knowledge-row ${learned ? "learned-row" : ""} ${value.length > 30 ? "stacked" : ""} ${range?.out ? "out-of-range" : ""}`}
     >
       <span>{label}</span>
       <strong>{value}</strong>
+      {range && <RangeBar {...range} />}
     </div>
   );
 }
@@ -769,7 +945,12 @@ function ElenaKnowledge({ stop, variantId }: { stop: number; variantId: VariantI
         tabIndex={0}
       >
         {details[tab].map(([label, value]) => (
-          <KnowledgeRow key={label} label={label} value={value} />
+          <KnowledgeRow
+            key={label}
+            label={label}
+            range={tab === "Laboratorio" ? labRanges[label] : undefined}
+            value={value}
+          />
         ))}
         {growingDetails.map(([label, value]) => (
           <KnowledgeRow key={label} label={label} learned value={value} />
@@ -781,6 +962,9 @@ function ElenaKnowledge({ stop, variantId }: { stop: number; variantId: VariantI
 }
 
 const confidenceLevels = ["Poco", "Algo", "Mucho"];
+
+// Retraso de cada opción en la cascada: los pasos se acortan (50, 40, 30 ms) para que se lea como una ola.
+const cascadeDelays = [0, 50, 90, 120];
 
 // En un grupo de radios, las flechas mueven el foco y la selección a la vez.
 function moveWithinRadioGroup(
@@ -826,9 +1010,29 @@ function ElenaCasePlay({ plan }: { plan: CasePlan }) {
     if (answered) nextActionRef.current?.focus();
   }, [answered]);
 
+  // También al entrar: los atajos 1–4 solo actúan con el foco dentro de la pregunta (WCAG 2.1.4).
   useEffect(() => {
-    if (stop > 0) headingRef.current?.focus();
+    headingRef.current?.focus();
   }, [stop]);
+
+  function handleShortcuts(event: KeyboardEvent<HTMLElement>) {
+    if (answered || event.altKey || event.ctrlKey || event.metaKey || event.repeat) return;
+    const target = event.target as HTMLElement;
+    const optionIndex = Number(event.key) - 1;
+    const option = data.options[optionIndex];
+    if (option) {
+      event.preventDefault();
+      setSelected(option.text);
+      event.currentTarget
+        .querySelectorAll<HTMLButtonElement>('[aria-labelledby="question-title"] [role="radio"]')
+        [optionIndex]?.focus();
+      return;
+    }
+    if (event.key === "Enter" && selected && !target.closest(".respond-button")) {
+      event.preventDefault();
+      respond();
+    }
+  }
 
   // Tras responder, las opciones dejan de ser un control y quedan como resultado.
   function choiceProps(value: string) {
@@ -875,33 +1079,51 @@ function ElenaCasePlay({ plan }: { plan: CasePlan }) {
       <main className="play-main">
         <PlayRoute stop={stop} answers={answers} />
         <div className="play-grid">
-          <section className="question-area">
+          <section className="question-area" onKeyDown={handleShortcuts}>
             <h1 id="question-title" ref={headingRef} tabIndex={-1}>
               {data.question}
             </h1>
-            {stop === 0 && (
-              <div className="level-adjustment variant-note">
-                <CompassLogo />
-                <span>
-                  Para ti elegimos {variant.note}: {variantChance} % de acierto estimado.
-                </span>
+            <div className="stop-lead">
+              <div aria-atomic="true" aria-live="polite" className="result-live">
+                {answered && (
+                  <p
+                    className={`result-line ${noIdea ? "neutral" : isCorrect ? "right" : "incorrect"}`}
+                  >
+                    {!noIdea && <ResultIcon correct={isCorrect} />}
+                    {noIdea
+                      ? "Esta es la respuesta, con su porqué."
+                      : isCorrect
+                        ? "Correcto."
+                        : "No es la correcta. Revisa por qué."}
+                  </p>
+                )}
               </div>
-            )}
+              {stop === 0 && !answered && (
+                <div className="level-adjustment variant-note">
+                  <CompassLogo />
+                  <span>
+                    Para ti elegimos {variant.note}: {variantChance} % de acierto estimado.
+                  </span>
+                </div>
+              )}
+            </div>
             <div
               aria-labelledby={answered ? undefined : "question-title"}
               role={answered ? undefined : "radiogroup"}
             >
               <div className={`answer-options ${answered ? "answered" : ""}`}>
-                {data.options.map((option) => {
+                {data.options.map((option, optionIndex) => {
                   const selectedWrong = answered && selected === option.text && !option.correct;
                   const showExpanded = expanded.includes(option.text);
                   return (
                     <div
                       className={`answer-wrap ${answered && option.correct ? "correct" : ""} ${selectedWrong ? "wrong" : ""}`}
                       key={option.text}
+                      style={{ "--cascade": `${cascadeDelays[optionIndex]}ms` } as CSSProperties}
                     >
                       <button
                         {...choiceProps(option.text)}
+                        aria-keyshortcuts={answered ? undefined : String(optionIndex + 1)}
                         className={`answer-option ${selected === option.text ? "selected" : ""}`}
                         disabled={answered}
                         onClick={() => setSelected(option.text)}
@@ -910,13 +1132,13 @@ function ElenaCasePlay({ plan }: { plan: CasePlan }) {
                         {option.text}
                       </button>
                       {answered && option.correct && (
-                        <div className="answer-feedback correct-feedback">
+                        <div className="answer-feedback correct-feedback reveal">
                           <span>Correcta</span>
                           <p>{option.explanation}</p>
                         </div>
                       )}
                       {selectedWrong && (
-                        <div className="answer-feedback wrong-feedback">
+                        <div className="answer-feedback wrong-feedback reveal">
                           <span>Tu respuesta</span>
                           <p>{option.explanation}</p>
                         </div>
@@ -926,6 +1148,7 @@ function ElenaCasePlay({ plan }: { plan: CasePlan }) {
                           <button
                             aria-expanded={showExpanded}
                             aria-label={`Por qué no: ${option.text}`}
+                            className="reveal"
                             onClick={() =>
                               setExpanded((current) =>
                                 current.includes(option.text)
@@ -956,7 +1179,7 @@ function ElenaCasePlay({ plan }: { plan: CasePlan }) {
               )}
             </div>
             {!answered && (
-              <>
+              <div className="response-bar">
                 {!noIdea && (
                   <div className="confidence-control">
                     <span id="confidence-label">¿Qué tan seguro estás?</span>
@@ -988,56 +1211,45 @@ function ElenaCasePlay({ plan }: { plan: CasePlan }) {
                 >
                   Responder
                 </button>
-              </>
+              </div>
             )}
-            <div aria-atomic="true" aria-live="polite" className="result-live">
-              {answered && (
-                <p
-                  className={`result-line ${noIdea ? "neutral" : isCorrect ? "right" : "incorrect"}`}
-                >
-                  {!noIdea && <ResultIcon correct={isCorrect} />}
-                  {noIdea
-                    ? "Esta es la respuesta, con su porqué."
-                    : isCorrect
-                      ? "Correcto."
-                      : "No es la correcta. Revisa por qué."}
-                </p>
-              )}
-            </div>
             {answered && (
               <>
-                <div className="remember-block">
+                <div className="remember-block reveal">
                   <strong>Para recordar</strong>
                   <p>{data.reminder}</p>
                   <span>Fuente: NICE NG145. Contenido sin validación médica.</span>
                 </div>
-                <div className="level-adjustment">
-                  <CompassLogo />
-                  Con esto ajustamos tu nivel en {data.competency}.
+                <div className="answer-next">
+                  <div className="level-adjustment reveal">
+                    <CompassLogo />
+                    <span>Con esto ajustamos tu nivel en {data.competency}.</span>
+                  </div>
+                  {stop === 2 ? (
+                    <a
+                      className="button-link next-stop-button"
+                      href="/caso/elena/resultado"
+                      ref={nextActionRef}
+                    >
+                      Ver resultado
+                    </a>
+                  ) : (
+                    <button
+                      className="next-stop-button"
+                      onClick={nextStop}
+                      ref={nextActionRef}
+                      type="button"
+                    >
+                      Ir a la parada {stop + 2}
+                    </button>
+                  )}
                 </div>
-                {stop === 2 ? (
-                  <a
-                    className="button-link next-stop-button"
-                    href="/caso/elena/resultado"
-                    ref={nextActionRef}
-                  >
-                    Ver resultado
-                  </a>
-                ) : (
-                  <button
-                    className="next-stop-button"
-                    onClick={nextStop}
-                    ref={nextActionRef}
-                    type="button"
-                  >
-                    Ir a la parada {stop + 2}
-                  </button>
-                )}
               </>
             )}
           </section>
           <ElenaKnowledge stop={stop} variantId={plan.variantId} />
         </div>
+        <DevDataToggle />
       </main>
     </div>
   );

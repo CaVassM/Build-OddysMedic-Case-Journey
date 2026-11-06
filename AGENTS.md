@@ -18,6 +18,7 @@ This is the canonical project structure. Start with task-relevant files below. O
 - `src/main.tsx` - React entrypoint; imports `src/index.css` and mounts `src/App.tsx` into the `#root` element
 - `src/App.tsx` - All screens, routing, and case data (stops, variants, candidate next cases, demo learners); the usual starting point for UI work
 - `src/engine.ts` - Adaptive Elo engine with no UI: seed competencies, probability, answer update, status, variant choice, and next-case recommendation
+- `src/worstCase.ts` - Extreme data for the patient card and answer options, used only in development with `?data=worst` on `/caso/elena` or `/caso/elena/jugar`
 - `src/index.css` - Global CSS entrypoint, Tailwind CSS v4 import, and the hand-written classes for every screen
 - `index.html` - Vite HTML shell containing the font links and the `#root` element, and loading `src/main.tsx`
 - `PRODUCT.md` - Product context and the "Pendiente" list
@@ -34,8 +35,8 @@ This is the canonical project structure. Start with task-relevant files below. O
 - `/` - Landing page
 - `/inicio` - Student home. Offers Elena until her case is finished, then the recommended case, which is not playable yet ("Disponible muy pronto")
 - `/progreso` - Territory map built from the history, competencies, "Ver cómo calcula el sistema" toggle, and "Reiniciar demo" button
-- `/caso/elena` - Case intro, the demo-only "Probar como" control, and "Empezar caso"
-- `/caso/elena/jugar` - The three case stops. Redirects to `/caso/elena` if there is no plan
+- `/caso/elena` - Patient card, "Empezar caso", and the floating demo-only "Probar como" pill
+- `/caso/elena/jugar` - The three case stops, with shortcuts 1–4 and Enter while focus is inside the question. Redirects to `/caso/elena` if there is no plan
 - `/caso/elena/resultado` - Case result and recommended next case. Redirects to `/caso/elena` unless all three stops are answered
 
 ## Demo State
@@ -63,5 +64,7 @@ There is no test runner or linter. Check changes with `pnpm exec tsc --noEmit` a
 This project uses **Tailwind CSS v4** through the `@tailwindcss/vite` plugin configured in `vite.config.ts`. `src/index.css` imports Tailwind with `@import 'tailwindcss';`. The existing screens use hand-written classes with fixed hex colors from `src/index.css`, not Tailwind utility classes (`sr-only` is the exception), so follow that pattern when extending them. This scaffold does not need a Tailwind config file or PostCSS config.
 
 Fonts load with `<link>` tags in `index.html` (`preconnect` plus `stylesheet`, with `display=swap`), **never with `@import` in CSS**. Request Bricolage Grotesque as `family=Bricolage+Grotesque:wght@700;800`; the earlier request with optical-size and width axes was rejected by Google Fonts. Font-family defaults stay in `src/index.css`, whose only `@import` is Tailwind.
+
+Motion lives in `src/index.css`, using the `--ease-out` and `--ease-in-out` curves. The landing page's only load animation is the hero route. On `/caso/elena/jugar`, answering plays one sequence: options recolor in a cascade, the explanation enters, then the route segment draws. Picking an option is instant, and `prefers-reduced-motion` keeps only opacity.
 
 Tailwind emits utility classes in `@layer utilities`, and CSS outside any cascade layer overrides every layer regardless of specificity. Put global element styles, such as resets and defaults for `body`, headings, `button`, or `input`, inside `@layer base { ... }` so utility classes on those elements still apply. Tailwind's Preflight already applies `box-sizing: border-box`, removes default margins, and sets `font: inherit` on form controls, so do not repeat those rules.
