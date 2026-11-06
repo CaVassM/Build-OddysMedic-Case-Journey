@@ -1,6 +1,6 @@
 // Datos extremos para comprobar las pantallas. Solo se usan en desarrollo con ?data=worst, empty, one o many.
 import type { CompetencyId } from "./engine";
-import type { Decision } from "./history";
+import type { Decision, SystemDecision } from "./history";
 
 const fixtureCompetencies: CompetencyId[] = [
   "interpretacion",
@@ -21,7 +21,8 @@ const fixtureErrors = [
 function manyDecisions() {
   const decisions: Decision[] = [];
   const theta = new Map<CompetencyId, number>();
-  for (let index = 0; index < 72; index++) {
+  const now = Date.now();
+  for (let index = 0; index < 30; index++) {
     const competencyId = fixtureCompetencies[index % fixtureCompetencies.length];
     const correct = index % 3 !== 0;
     const next = (theta.get(competencyId) ?? 0) + (correct ? 0.22 : -0.31);
@@ -29,6 +30,8 @@ function manyDecisions() {
     const isNoIdea = index % 11 === 0;
     decisions.push({
       caseName: index < 6 ? "Lucía" : index < 12 ? "Marta" : `Caso ${Math.floor(index / 3)}`,
+      stop: (index % 3) + 1,
+      at: now - (30 - index) * 8 * 60 * 60 * 1000,
       competencyId,
       correct: correct && !isNoIdea,
       answer: isNoIdea ? "No sé" : "",
@@ -48,6 +51,8 @@ export function progressFixture(kind: string | null): Decision[] | null {
     return [
       {
         caseName: "Lucía",
+        stop: 1,
+        at: Date.now() - 3 * 24 * 60 * 60 * 1000,
         competencyId: "interpretacion",
         correct: true,
         answer: "",
@@ -60,13 +65,18 @@ export function progressFixture(kind: string | null): Decision[] | null {
   return null;
 }
 
-export function manySystemDecisions() {
-  return Array.from(
-    { length: 24 },
-    (_, index) =>
-      `Siguiente caso: Caso ${index + 1}, porque selección de pruebas está en sin evidencia suficiente (${60 + index} %)`,
-  );
+export function manySystemDecisions(): SystemDecision[] {
+  return Array.from({ length: 24 }, (_, index) => ({
+    kind: index % 2 ? "Variante" : "Siguiente caso",
+    choice: `Caso ${index + 1}`,
+    reason: "selección de pruebas está en sin evidencia suficiente",
+    chance: 60 + index,
+  }));
 }
+
+// Nombre largo para una competencia: se aplica a «Interpretación de resultados» con ?data=worst.
+export const worstCompetencyName =
+  "Interpretación integrada de resultados de laboratorio, imagen y contexto clínico";
 
 export const worstCaseLongName = "María José de la Cruz y Fernández-Wiśniewska Oberhauser";
 

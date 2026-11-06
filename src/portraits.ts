@@ -124,3 +124,7 @@ export function portraitSrc(name: PortraitName) {
 export function portraitTone(name: PortraitName) {
   return looks[name].tone;
 }
+
+export function hasPortrait(name: string): name is PortraitName {
+  return name in looks;
+}

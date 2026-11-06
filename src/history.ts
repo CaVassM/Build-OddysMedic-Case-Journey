@@ -1,8 +1,12 @@
 // Historial de decisiones del alumno y métricas calculadas a partir de él. No contiene cifras fijas de la interfaz.
-import { sigma, type CompetencyId } from "./engine";
+import { probability, seedCompetencies, sigma, type CompetencyId } from "./engine";
 
 export type Decision = {
   caseName: string;
+  /** Parada del caso, desde 1. */
+  stop: number;
+  /** Momento en que se respondió, en ms. */
+  at: number;
   competencyId: CompetencyId;
   correct: boolean;
   answer: string;
@@ -13,11 +17,21 @@ export type Decision = {
 };
 
 const noIdea = "No sé";
+const dayMs = 24 * 60 * 60 * 1000;
+
+// Las fechas del historial de ejemplo se cuentan hacia atrás desde hoy, para que "hace 2 días" lo siga siendo.
+function exampleTime(daysBack: number, step: number) {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  return today.getTime() - daysBack * dayMs + step * 150_000;
+}
 
 // Historial de ejemplo de Bruno. Cada competencia termina en el θ y el n de `seedCompetencies`.
 export const seededDecisions: Decision[] = [
   {
     caseName: "Lucía",
+    stop: 1,
+    at: exampleTime(5, 1),
     competencyId: "formulacion",
     correct: true,
     answer: "",
@@ -27,6 +41,8 @@ export const seededDecisions: Decision[] = [
   },
   {
     caseName: "Lucía",
+    stop: 2,
+    at: exampleTime(5, 2),
     competencyId: "interpretacion",
     correct: true,
     answer: "",
@@ -36,6 +52,8 @@ export const seededDecisions: Decision[] = [
   },
   {
     caseName: "Lucía",
+    stop: 3,
+    at: exampleTime(5, 3),
     competencyId: "priorizacion",
     correct: false,
     answer: "",
@@ -46,6 +64,8 @@ export const seededDecisions: Decision[] = [
   },
   {
     caseName: "Lucía",
+    stop: 4,
+    at: exampleTime(5, 4),
     competencyId: "priorizacion",
     correct: false,
     answer: noIdea,
@@ -55,6 +75,8 @@ export const seededDecisions: Decision[] = [
   },
   {
     caseName: "Lucía",
+    stop: 5,
+    at: exampleTime(5, 5),
     competencyId: "formulacion",
     correct: false,
     answer: "",
@@ -65,6 +87,8 @@ export const seededDecisions: Decision[] = [
   },
   {
     caseName: "Marta",
+    stop: 1,
+    at: exampleTime(2, 1),
     competencyId: "interpretacion",
     correct: false,
     answer: "",
@@ -75,6 +99,8 @@ export const seededDecisions: Decision[] = [
   },
   {
     caseName: "Marta",
+    stop: 2,
+    at: exampleTime(2, 2),
     competencyId: "manejo",
     correct: true,
     answer: "",
@@ -84,6 +110,8 @@ export const seededDecisions: Decision[] = [
   },
   {
     caseName: "Marta",
+    stop: 3,
+    at: exampleTime(2, 3),
     competencyId: "manejo",
     correct: true,
     answer: "",
@@ -93,6 +121,8 @@ export const seededDecisions: Decision[] = [
   },
   {
     caseName: "Marta",
+    stop: 4,
+    at: exampleTime(2, 4),
     competencyId: "formulacion",
     correct: true,
     answer: "",
@@ -102,8 +132,24 @@ export const seededDecisions: Decision[] = [
   },
 ];
 
-export const seededSystemDecisions = [
-  "Siguiente caso: Elena, porque aún no tenemos evidencia de cómo interpretas pruebas tiroideas.",
+/** Lo que el sistema eligió por el alumno, dicho en lenguaje llano. */
+export type SystemDecision = {
+  kind: "Variante" | "Siguiente caso";
+  choice: string;
+  reason: string;
+  /** Probabilidad de acierto estimada, en %. */
+  chance?: number;
+};
+
+export const seededSystemDecisions: SystemDecision[] = [
+  {
+    kind: "Siguiente caso",
+    choice: "Elena",
+    reason: "aún no tenemos evidencia de cómo interpretas pruebas tiroideas",
+    chance: Math.round(
+      probability(seedCompetencies.find(({ id }) => id === "interpretacion")!.theta, 0) * 100,
+    ),
+  },
 ];
 
 export const confidenceLevels = ["Poco", "Algo", "Mucho"];
@@ -119,34 +165,92 @@ export function summarizeDecisions(decisions: Decision[]) {
     return {
       level,
       count: chosen.length,
+      right,
       rate: chosen.length ? Math.round((right / chosen.length) * 100) : null,
     };
   });
 
-  const errorCounts = new Map<string, number>();
-  for (const { errorTitle } of decisions) {
-    if (errorTitle) errorCounts.set(errorTitle, (errorCounts.get(errorTitle) ?? 0) + 1);
+  const errorCounts = new Map<string, { count: number; cases: string[] }>();
+  for (const { errorTitle, caseName } of decisions) {
+    if (!errorTitle) continue;
+    const entry = errorCounts.get(errorTitle) ?? { count: 0, cases: [] };
+    entry.count += 1;
+    if (!entry.cases.includes(caseName)) entry.cases.push(caseName);
+    errorCounts.set(errorTitle, entry);
   }
+  const noIdeaCount = decisions.filter((decision) => decision.answer === noIdea).length;
 
   return {
     total,
     correctRate: total ? Math.round((correct / total) * 100) : 0,
     averageSeconds: total ? Math.round(seconds / total) : 0,
-    noIdeaCount: decisions.filter((decision) => decision.answer === noIdea).length,
+    correctCount: correct,
+    noIdeaCount,
+    wrongCount: total - correct - noIdeaCount,
+    seconds,
     confidence,
     overconfidentCount: decisions.filter(
       (decision) => decision.confidence === "Mucho" && !decision.correct,
     ).length,
     // A igual número de veces se mantiene el orden en que aparecieron.
     errors: [...errorCounts]
-      .map(([title, count]) => ({ title, count }))
+      .map(([title, { count, cases }]) => ({ title, count, cases }))
       .sort((a, b) => b.count - a.count),
   };
 }
 
-/** σ(θ) después de cada respuesta de una competencia. */
-export function competencyTrail(decisions: Decision[], competencyId: CompetencyId) {
+export type TrailPoint = {
+  /** Número de respuesta dentro de la competencia, desde 1. */
+  n: number;
+  /** σ(θ) tras responder, en %. */
+  level: number;
+  correct: boolean;
+  noIdea: boolean;
+  caseName: string;
+  stop: number;
+  at: number;
+};
+
+/** Un punto por intento: nivel tras responder y con qué resultado. */
+export function competencyPoints(decisions: Decision[], competencyId: CompetencyId): TrailPoint[] {
   return decisions
     .filter((decision) => decision.competencyId === competencyId)
-    .map((decision) => sigma(decision.thetaAfter));
+    .map((decision, index) => ({
+      n: index + 1,
+      level: Math.round(sigma(decision.thetaAfter) * 100),
+      correct: decision.correct,
+      noIdea: decision.answer === noIdea,
+      caseName: decision.caseName,
+      stop: decision.stop,
+      at: decision.at,
+    }));
+}
+
+/** Resumen de un caso ya jugado: aciertos, tiempo y competencias trabajadas. */
+export function summarizeCase(decisions: Decision[], caseName: string) {
+  const own = decisions.filter((decision) => decision.caseName === caseName);
+  return {
+    decisions: own,
+    correct: own.filter((decision) => decision.correct).length,
+    seconds: own.reduce((sum, decision) => sum + decision.seconds, 0),
+    competencies: [...new Set(own.map((decision) => decision.competencyId))],
+    at: own.reduce((latest, decision) => Math.max(latest, decision.at), 0),
+  };
+}
+
+const shortDate = new Intl.DateTimeFormat("es", { day: "numeric", month: "short" });
+
+/** "5 nov" */
+export function formatShortDate(at: number) {
+  return shortDate.format(at).replace(".", "");
+}
+
+/** "hoy", "ayer", "hace 2 días"; pasadas cuatro semanas, la fecha. */
+export function formatRelativeDay(at: number, now = Date.now()) {
+  const startOf = (time: number) => new Date(time).setHours(0, 0, 0, 0);
+  const days = Math.round((startOf(now) - startOf(at)) / dayMs);
+  if (days <= 0) return "hoy";
+  if (days === 1) return "ayer";
+  if (days < 28) return `hace ${days} días`;
+  return formatShortDate(at);
 }

@@ -18,7 +18,9 @@ This is the canonical project structure. Start with task-relevant files below. O
 - `src/main.tsx` - React entrypoint; imports `src/index.css` and mounts `src/App.tsx` into the `#root` element
 - `src/App.tsx` - All screens, routing, and case data (stops, variants, candidate next cases, demo learners); the usual starting point for UI work
 - `src/engine.ts` - Adaptive Elo engine with no UI: seed competencies, probability, answer update, status, variant choice, and next-case recommendation
-- `src/history.ts` - Decision history: the example answers for Lucía and Marta, whose counts and final θ match the engine's seed, plus the metrics calculated from them
+- `src/history.ts` - Decision history: the example answers for Lucía and Marta, whose counts and final θ match the engine's seed, plus the metrics calculated from them. Each decision keeps its case, stop number and date, because the level chart and the recent cases read them
+- `src/charts.tsx` - Every chart: stat rings, level line chart, confidence bars, outcome donut, and time bars. Recharts draws the axes and tooltips; each chart ships a hidden table for screen readers
+- `src/icons.tsx` - Line icons, all decorative, plus one icon per competency
 - `src/portraits.ts` - Portraits generated locally with DiceBear (Open Peeps, CC0), with a fixed seed and look per person
 - `src/worstCase.ts` - Extreme data used only in development: `?data=worst` (long names and options) and `?data=empty`, `one`, or `many` (progress history)
 - `src/index.css` - Global CSS entrypoint, Tailwind CSS v4 import, and the hand-written classes for every screen
@@ -35,18 +37,18 @@ This is the canonical project structure. Start with task-relevant files below. O
 `App()` in `src/App.tsx` routes by checking `window.location.pathname`; there is no router library.
 
 - `/` - Landing page
-- `/inicio` - Student home. Offers Elena until her case is finished, then the recommended case, which is not playable yet ("Disponible muy pronto")
-- `/progreso` - Territory map built from the history, competencies, "Ver cómo calcula el sistema" toggle, and "Reiniciar demo" button
+- `/inicio` - Student home. Offers Elena until her case is finished, then the recommended case, which is not playable yet ("Disponible muy pronto"). Competencies show σ(θ) large (a dash without 2 answers); recent cases show date, route, score, time, and competencies
+- `/progreso` - Territory map built from the history, four stat rings, the "No sé" callout, level chart per competency, confidence bars, error cards with "Repasar", the system's decisions as a timeline, the competencies table, "Ver cómo calcula el sistema" toggle, and "Reiniciar demo" button
 - `/caso/elena` - Patient card, "Empezar caso", and the floating demo-only "Probar como" pill
-- `/caso/elena/jugar` - The three case stops, with shortcuts 1–4 and Enter while focus is inside the question. Redirects to `/caso/elena` if there is no plan
-- `/caso/elena/resultado` - Case result and recommended next case. Redirects to `/caso/elena` unless all three stops are answered
+- `/caso/elena/jugar` - The three case stops, with shortcuts 1–4 and Enter while focus is inside the question. The side panel opens on "Historia" and resets on every stop; "Laboratorio" carries a dot until it is visited. A timer counts up (never down) and can be hidden (`elena-timer-hidden`). Redirects to `/caso/elena` if there is no plan
+- `/caso/elena/resultado` - Case result (outcome donut, time against the estimate, before → after per competency, then stop details) and recommended next case. Redirects to `/caso/elena` unless all three stops are answered
 
 ## Demo State
 
 State lives only in `sessionStorage`, so it does not carry over to a new browser session:
 
 - `elena-plan` - `{ learnerId, variantId }`. "Empezar caso" sets it and removes `elena-answers` and `elena-closed`, and it stays fixed for the rest of the case
-- `elena-answers` - One saved answer per stop
+- `elena-answers` - One saved answer per stop, with the time it took (`time`) and when it was given (`at`)
 
 Competencies and the decision history, including θ after each attempt, are recalculated on each screen by replaying `elena-answers` over the seed, never stored, so reopening a screen can't count an answer twice. If you change `seedCompetencies`, update `seededDecisions` so both still agree. Each attempt starts again from the seed. "Reiniciar demo" calls `sessionStorage.clear()` and reloads the page.
 
@@ -54,7 +56,7 @@ Competencies and the decision history, including θ after each attempt, are reca
 
 ## Dependencies
 
-- Runtime: React 19, React DOM 19, and `@dicebear/core` with `@dicebear/collection` (both on major version 9, which `collection` requires)
+- Runtime: React 19, React DOM 19, `recharts` for every chart, and `@dicebear/core` with `@dicebear/collection` (both on major version 9, which `collection` requires)
 - Styling: Tailwind CSS v4 with the `@tailwindcss/vite` plugin
 - Build tooling: Vite 8, TypeScript 5, and `@vitejs/plugin-react`
 - Formatting: oxfmt
@@ -74,3 +76,5 @@ The page background is warm paper (`--paper`, #FAF8F5). Only objects are cards: 
 Motion lives in `src/index.css`, using the `--ease-out` and `--ease-in-out` curves. Each animation plays once and its resting state is the finished one, so nothing stays hidden if it doesn't run. The landing page draws the hero route on load, and the current stop of a route draws one ECG wave (`Heartbeat`). On `/caso/elena/jugar`, answering plays one sequence: options recolor in a cascade, the explanation enters, then the route segment draws. On `/caso/elena/resultado`, the route reaches the "Caso cerrado" stamp once per attempt (`elena-closed` in `sessionStorage`). Picking an option is instant. `prefers-reduced-motion` keeps only opacity in the answer sequence and removes the rest.
 
 Tailwind emits utility classes in `@layer utilities`, and CSS outside any cascade layer overrides every layer regardless of specificity. Put global element styles, such as resets and defaults for `body`, headings, `button`, or `input`, inside `@layer base { ... }` so utility classes on those elements still apply. Tailwind's Preflight already applies `box-sizing: border-box`, removes default margins, and sets `font: inherit` on form controls, so do not repeat those rules.
+
+Charts use colors with a fixed meaning: aquamarine is a correct answer, #C2392F an error, gray "No sé", and indigo the system's voice. Rings fill once when they enter (600 ms, ease-out); the level chart draws once and shows already drawn when the learner switches competency. With `prefers-reduced-motion` no chart or ring animates. The estimated time per decision (120 s) comes from "unos 6 minutos" for three stops.

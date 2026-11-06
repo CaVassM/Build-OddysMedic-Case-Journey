@@ -19,19 +19,37 @@ import {
   type CompetencyState,
 } from "./engine";
 import {
-  competencyTrail,
+  competencyPoints,
+  formatRelativeDay,
   seededDecisions,
   seededSystemDecisions,
+  summarizeCase,
   summarizeDecisions,
   type Decision,
+  type SystemDecision,
 } from "./history";
-import { portraitSrc, portraitTone, type PortraitName } from "./portraits";
+import { ConfidenceChart, LevelChart, OutcomeDonut, StatRing, TimeBars } from "./charts";
+import {
+  ArrowRightIcon,
+  BookmarkIcon,
+  ChevronIcon,
+  ClockIcon,
+  CompassIcon,
+  CompetencyIcon,
+  EyeIcon,
+  FlaskIcon,
+  InfoIcon,
+  RouteIcon,
+  TrendIcon,
+} from "./icons";
+import { hasPortrait, portraitSrc, portraitTone, type PortraitName } from "./portraits";
 import {
   manySystemDecisions,
   progressFixture,
   worstCaseLongName,
   worstCasePatient,
   worstCaseStop,
+  worstCompetencyName,
 } from "./worstCase";
 
 // Solo en desarrollo y solo si la URL lo pide: una demo normal no ve ni el selector ni estos datos.
@@ -357,67 +375,110 @@ function CompetencyStatus({ competency }: { competency: CompetencyState }) {
   return <small className={`status-chip ${tone}`}>{label}</small>;
 }
 
+function answersLabel(count: number) {
+  return `${count} ${count === 1 ? "respuesta" : "respuestas"}`;
+}
+
+// El % es σ(θ); sin al menos 2 respuestas no lo mostramos, igual que el estado.
 function Competency({ competency }: { competency: CompetencyState }) {
+  const { hasEvidence, progress } = describeCompetency(competency);
   return (
     <div className="competency-row">
-      <p>{competency.name}</p>
+      <div className="competency-head">
+        <p>{competency.name}</p>
+        <strong className="competency-percent">
+          {hasEvidence ? `${Math.round(progress * 100)} %` : "—"}
+        </strong>
+      </div>
       <CompetencyTrack competency={competency} />
-      <CompetencyStatus competency={competency} />
+      <div className="competency-foot">
+        <CompetencyStatus competency={competency} />
+        <span>{answersLabel(competency.n)}</span>
+      </div>
     </div>
   );
 }
 
-const recentCases: Array<{
+type RecentCaseData = {
   title: string;
   patient: string;
   portrait: PortraitName;
-  marks: StopAnswer[];
-}> = [
+  decisions: Decision[];
+  href: string;
+  linkLabel: string;
+};
+
+// Lucía y Marta son historial de ejemplo; su detalle vive en «Mi progreso».
+const exampleCases: Array<Omit<RecentCaseData, "decisions"> & { caseName: string }> = [
   {
+    caseName: "Lucía",
     title: "Cetoacidosis tras gastroenteritis",
     patient: useWorstCase ? `${worstCaseLongName}, 24 años` : "Lucía, 24 años",
     portrait: "Lucía",
-    marks: seededDecisions.filter(({ caseName }) => caseName === "Lucía"),
+    href: "/progreso",
+    linkLabel: "Ver en mi progreso",
   },
   {
+    caseName: "Marta",
     title: "Palpitaciones y pérdida de peso",
     patient: "Marta, 35 años",
     portrait: "Marta",
-    marks: seededDecisions.filter(({ caseName }) => caseName === "Marta"),
+    href: "/progreso",
+    linkLabel: "Ver en mi progreso",
   },
 ];
 
-function RecentCase({
-  title,
-  patient,
-  portrait,
-  marks,
-}: {
-  title: string;
-  patient: string;
-  portrait: PortraitName;
-  marks: StopAnswer[];
-}) {
+function RecentCase({ title, patient, portrait, decisions, href, linkLabel }: RecentCaseData) {
+  if (decisions.length === 0) return null;
+  const summary = summarizeCase(decisions, decisions[0]?.caseName ?? "");
+  const total = decisions.length;
+  const names = summary.competencies.map(
+    (id) => seedCompetencies.find((competency) => competency.id === id)?.name ?? id,
+  );
   return (
     <article className="recent-case">
-      <div className="recent-who">
-        <Portrait patient={portrait} />
-        <div>
-          <h3>{title}</h3>
-          <p>{patient}</p>
-        </div>
+      <Portrait patient={portrait} />
+      <div className="recent-body">
+        <h3>{title}</h3>
+        <p className="recent-meta">
+          {patient} ·{" "}
+          <time dateTime={new Date(summary.at).toISOString()}>{formatRelativeDay(summary.at)}</time>
+        </p>
+        <ul aria-label="Competencias trabajadas" className="recent-chips">
+          {names.map((name) => (
+            <li key={name} title={name}>
+              {name}
+            </li>
+          ))}
+        </ul>
       </div>
       <div className="recent-result">
-        <div className="recent-route">
-          {marks.map((mark, index) => (
+        <div
+          className="recent-score"
+          role="img"
+          aria-label={`${summary.correct} de ${total} aciertos`}
+        >
+          <strong aria-hidden="true">
+            {summary.correct}
+            <span>/{total}</span>
+          </strong>
+          <small aria-hidden="true">aciertos</small>
+        </div>
+        <div className="recent-route" aria-hidden="true">
+          {decisions.map((mark, index) => (
             <span className={`recent-mark ${stopMarkState(mark)}`} key={index}>
               <StopMark answer={mark} />
             </span>
           ))}
         </div>
-        <span>
-          {marks.filter((mark) => mark.correct).length} de {marks.length} aciertos
+        <span className="recent-time">
+          <ClockIcon />
+          {formatDuration(summary.seconds)}
         </span>
+        <a className="recent-link" href={href}>
+          {linkLabel}
+          <ArrowRightIcon />
+        </a>
       </div>
     </article>
   );
@@ -425,7 +486,9 @@ function RecentCase({
 
 function StudentHome() {
   const answers = readElenaAnswers();
-  const competencies = competenciesAfterElena(answers, readCasePlan());
+  const plan = readCasePlan();
+  const competencies = competenciesAfterElena(answers, plan);
+  const history = buildDecisionHistory(answers, plan);
   const homeCompetencies = competencies.filter(({ id }) =>
     elenaStops.some((stop) => stop.competencyId === id),
   );
@@ -484,14 +547,20 @@ function StudentHome() {
             <div className="recent-case-list">
               {finished && (
                 <RecentCase
-                  title="Consulta por cansancio"
+                  decisions={history.filter(({ caseName }) => caseName === "Elena")}
+                  href="/caso/elena/resultado"
+                  linkLabel="Ver resultado"
                   patient="Elena, 68 años"
                   portrait="Elena"
-                  marks={answers}
+                  title="Consulta por cansancio"
                 />
               )}
-              {recentCases.map((recentCase) => (
-                <RecentCase key={recentCase.title} {...recentCase} />
+              {exampleCases.map(({ caseName, ...recentCase }) => (
+                <RecentCase
+                  decisions={history.filter((decision) => decision.caseName === caseName)}
+                  key={caseName}
+                  {...recentCase}
+                />
               ))}
             </div>
           </section>
@@ -501,9 +570,12 @@ function StudentHome() {
           {homeCompetencies.map((competency) => (
             <Competency competency={competency} key={competency.id} />
           ))}
-          <a className="progress-link" href="/progreso">
-            Ver todo mi progreso
-          </a>
+          <div className="progress-link-wrap">
+            <a className="progress-link" href="/progreso">
+              Ver todo mi progreso
+              <ArrowRightIcon />
+            </a>
+          </div>
         </aside>
         <DevDataToggle />
       </main>
@@ -583,7 +655,16 @@ function ElenaCaseIntro() {
             >
               Empezar caso
             </a>
-            <span>Unos 6 minutos.</span>
+            <ul className="case-meta">
+              <li>
+                <ClockIcon />
+                Unos 6 minutos
+              </li>
+              <li>
+                <RouteIcon />
+                {elenaStops.length} paradas
+              </li>
+            </ul>
             <a className="case-start-back" href="/inicio">
               Volver al inicio
             </a>
@@ -596,7 +677,17 @@ function ElenaCaseIntro() {
           </section>
           <section className="case-intro-section practice-section">
             <h2>Qué vas a practicar</h2>
-            <p>Interpretación de resultados, manejo terapéutico y selección de pruebas.</p>
+            <ul className="practice-chips">
+              {startingCompetencies(learnerId)
+                .filter(({ id }) => elenaStops.some((stop) => stop.competencyId === id))
+                .map((competency) => (
+                  <li key={competency.id}>
+                    <CompetencyIcon id={competency.id} />
+                    <span title={competency.name}>{competency.name}</span>
+                    <CompetencyStatus competency={competency} />
+                  </li>
+                ))}
+            </ul>
           </section>
           <div className="case-info-strip">
             <p>Puedes responder «No sé»: también nos ayuda a elegir tu siguiente caso.</p>
@@ -772,11 +863,13 @@ function startingCompetencies(learnerId: LearnerId) {
         return { ...competency, n: own.length, theta: own[own.length - 1]?.thetaAfter ?? 0 };
       })
     : seedCompetencies;
-  return base.map((competency) =>
-    competency.id === "interpretacion" && theta !== undefined
-      ? { ...competency, theta }
-      : competency,
-  );
+  return base.map((competency) => {
+    const named =
+      useWorstCase && competency.id === "interpretacion"
+        ? { ...competency, name: worstCompetencyName }
+        : competency;
+    return named.id === "interpretacion" && theta !== undefined ? { ...named, theta } : named;
+  });
 }
 
 function startingTheta(learnerId: LearnerId) {
@@ -850,6 +943,10 @@ function recommendNextCase(competencies: CompetencyState[]) {
   );
   return recommendCase(caseCompetencies, nextCaseCandidates)!;
 }
+
+// Unos 6 minutos entre tres paradas, como dice la ficha del caso.
+const estimatedSecondsPerDecision = 120;
+const casesInTerritory = 26;
 
 function ResultIcon({ correct }: { correct: boolean }) {
   return (
@@ -929,7 +1026,79 @@ function FocusTopbar() {
   );
 }
 
-function PlayRoute({ stop, answers }: { stop: number; answers: Array<StopAnswer | undefined> }) {
+const timerHiddenKey = "elena-timer-hidden";
+
+function clock(seconds: number) {
+  const minutes = String(Math.floor(seconds / 60)).padStart(2, "0");
+  return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+// Tiempo transcurrido de la misión, nunca una cuenta atrás. Se puede ocultar y la preferencia se recuerda.
+function PlayTimer({ running }: { running: boolean }) {
+  const [startedAt] = useState(() => Date.now());
+  const [elapsed, setElapsed] = useState(0);
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return sessionStorage.getItem(timerHiddenKey) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const tick = () => setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    tick();
+    if (!running) return;
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [running, startedAt]);
+
+  function toggle() {
+    setHidden((current) => {
+      try {
+        sessionStorage.setItem(timerHiddenKey, current ? "0" : "1");
+      } catch {
+        // Sin almacenamiento, la preferencia vale solo para esta pantalla.
+      }
+      return !current;
+    });
+  }
+
+  return (
+    <div className="play-timer">
+      {!hidden && (
+        <span
+          aria-label={`Llevas ${formatDuration(elapsed)} de unos 6 minutos`}
+          aria-live="off"
+          role="timer"
+        >
+          <ClockIcon />
+          <b>{clock(elapsed)}</b>
+          <small>de ~6 min</small>
+        </span>
+      )}
+      <button
+        aria-label={hidden ? "Mostrar el tiempo" : "Ocultar el tiempo"}
+        aria-pressed={hidden}
+        onClick={toggle}
+        title={hidden ? "Mostrar el tiempo" : "Ocultar el tiempo"}
+        type="button"
+      >
+        <EyeIcon hidden={hidden} />
+      </button>
+    </div>
+  );
+}
+
+function PlayRoute({
+  stop,
+  answers,
+  timer,
+}: {
+  stop: number;
+  answers: Array<StopAnswer | undefined>;
+  timer: ReactNode;
+}) {
   return (
     <div className="play-route">
       <div className="play-track">
@@ -959,7 +1128,10 @@ function PlayRoute({ stop, answers }: { stop: number; answers: Array<StopAnswer 
           );
         })}
       </div>
-      <strong className="stop-count">Parada {stop + 1} de 3</strong>
+      <div className="play-meta">
+        <strong className="stop-count">Parada {stop + 1} de 3</strong>
+        {timer}
+      </div>
     </div>
   );
 }
@@ -1042,7 +1214,9 @@ function KnowledgeRow({
 }
 
 function ElenaKnowledge({ stop, variantId }: { stop: number; variantId: VariantId }) {
-  const [tab, setTab] = useState("Laboratorio");
+  const [tab, setTab] = useState("Historia");
+  const [labSeen, setLabSeen] = useState(false);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const guided = variantId === "guiada";
   const details: Record<string, string[][]> = {
     Historia: [
@@ -1081,6 +1255,17 @@ function ElenaKnowledge({ stop, variantId }: { stop: number; variantId: VariantI
   const tabNames = Object.keys(details);
   const activeIndex = tabNames.indexOf(tab);
 
+  function selectTab(name: string) {
+    setTab(name);
+    if (name === "Laboratorio") setLabSeen(true);
+  }
+
+  // El enlace del relato desaparece al cambiar de pestaña: el foco pasa a la pestaña de destino.
+  function openLaboratory() {
+    selectTab("Laboratorio");
+    tabsRef.current?.querySelector<HTMLButtonElement>("#knowledge-tab-lab")?.focus();
+  }
+
   function moveWithKeyboard(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const targets: Record<string, number> = {
       ArrowRight: (index + 1) % tabNames.length,
@@ -1091,7 +1276,7 @@ function ElenaKnowledge({ stop, variantId }: { stop: number; variantId: VariantI
     const target = targets[event.key];
     if (target === undefined) return;
     event.preventDefault();
-    setTab(tabNames[target]);
+    selectTab(tabNames[target]);
     event.currentTarget.parentElement
       ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
       [target].focus();
@@ -1110,26 +1295,41 @@ function ElenaKnowledge({ stop, variantId }: { stop: number; variantId: VariantI
   return (
     <aside className="knowledge-panel">
       <h2>Lo que sabes de Elena</h2>
-      <div aria-label="Información del caso" className="knowledge-tabs" role="tablist">
+      <div
+        aria-label="Información del caso"
+        className="knowledge-tabs"
+        ref={tabsRef}
+        role="tablist"
+      >
         {tabNames.map((name, index) => (
           <button
             aria-controls={tab === name ? "knowledge-tabpanel" : undefined}
             aria-selected={tab === name}
             className={tab === name ? "active" : ""}
-            id={`knowledge-tab-${index}`}
+            id={name === "Laboratorio" ? "knowledge-tab-lab" : `knowledge-tab-${index}`}
             key={name}
-            onClick={() => setTab(name)}
+            onClick={() => selectTab(name)}
             onKeyDown={(event) => moveWithKeyboard(event, index)}
             role="tab"
             tabIndex={tab === name ? 0 : -1}
             type="button"
           >
             {name}
+            {name === "Laboratorio" && !labSeen && (
+              <>
+                <span aria-hidden="true" className="lab-dot" />
+                <span className="sr-only">, con resultados nuevos</span>
+              </>
+            )}
           </button>
         ))}
       </div>
       <div
-        aria-labelledby={`knowledge-tab-${activeIndex}`}
+        aria-labelledby={
+          activeIndex === tabNames.indexOf("Laboratorio")
+            ? "knowledge-tab-lab"
+            : `knowledge-tab-${activeIndex}`
+        }
         className="knowledge-rows"
         id="knowledge-tabpanel"
         role="tabpanel"
@@ -1146,6 +1346,15 @@ function ElenaKnowledge({ stop, variantId }: { stop: number; variantId: VariantI
         {growingDetails.map(([label, value]) => (
           <KnowledgeRow key={label} label={label} learned value={value} />
         ))}
+        {tab === "Historia" && (
+          <p className="lab-hint">
+            Hay resultados de laboratorio para esta parada
+            <button onClick={openLaboratory} type="button">
+              Ver laboratorio
+              <ArrowRightIcon />
+            </button>
+          </p>
+        )}
       </div>
       <p className="lab-note">Valores de un laboratorio ficticio.</p>
     </aside>
@@ -1183,9 +1392,7 @@ function ElenaCasePlay({ plan }: { plan: CasePlan }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [confidence, setConfidence] = useState("Algo");
   const [answered, setAnswered] = useState(false);
-  const [answers, setAnswers] = useState<
-    Array<{ correct: boolean; answer: string; confidence: string; time: number } | undefined>
-  >([]);
+  const [answers, setAnswers] = useState<Array<SavedAnswer | undefined>>([]);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [startedAt, setStartedAt] = useState(() => Date.now());
   const data = elenaStops[stop];
@@ -1247,6 +1454,7 @@ function ElenaCasePlay({ plan }: { plan: CasePlan }) {
         answer: selected,
         confidence: noIdea ? "No sé" : confidence,
         time: Math.max(1, Math.round((Date.now() - startedAt) / 1000)),
+        at: Date.now(),
       };
       sessionStorage.setItem("elena-answers", JSON.stringify(next));
       return next;
@@ -1268,7 +1476,11 @@ function ElenaCasePlay({ plan }: { plan: CasePlan }) {
     <div className="play-page">
       <FocusTopbar />
       <main className="play-main">
-        <PlayRoute stop={stop} answers={answers} />
+        <PlayRoute
+          answers={answers}
+          stop={stop}
+          timer={<PlayTimer running={!(answered && stop === elenaStops.length - 1)} />}
+        />
         <div className="play-grid">
           <section className="question-area" onKeyDown={handleShortcuts}>
             <h1 id="question-title" ref={headingRef} tabIndex={-1}>
@@ -1406,11 +1618,7 @@ function ElenaCasePlay({ plan }: { plan: CasePlan }) {
             )}
             {answered && (
               <>
-                <div className="remember-block reveal">
-                  <strong>Para recordar</strong>
-                  <p>{data.reminder}</p>
-                  <span>Fuente: NICE NG145. Contenido sin validación médica.</span>
-                </div>
+                <RememberCard className="reveal" collapsible reminder={data.reminder} />
                 <div className="answer-next">
                   <div className="level-adjustment reveal">
                     <CompassLogo />
@@ -1438,7 +1646,7 @@ function ElenaCasePlay({ plan }: { plan: CasePlan }) {
               </>
             )}
           </section>
-          <ElenaKnowledge stop={stop} variantId={plan.variantId} />
+          <ElenaKnowledge key={stop} stop={stop} variantId={plan.variantId} />
         </div>
         <DevDataToggle />
       </main>
@@ -1446,7 +1654,14 @@ function ElenaCasePlay({ plan }: { plan: CasePlan }) {
   );
 }
 
-type SavedAnswer = { correct: boolean; answer: string; confidence: string; time: number };
+type SavedAnswer = {
+  correct: boolean;
+  answer: string;
+  confidence: string;
+  time: number;
+  /** Momento de la respuesta; las sesiones antiguas no lo tienen. */
+  at?: number;
+};
 
 function readElenaAnswers(): SavedAnswer[] {
   try {
@@ -1505,6 +1720,8 @@ function buildDecisionHistory(answers: SavedAnswer[], plan: CasePlan | null): De
     return [
       {
         caseName: "Elena",
+        stop: index + 1,
+        at: answer.at ?? Date.now(),
         competencyId: stop.competencyId,
         correct: answer.correct,
         answer: answer.answer,
@@ -1522,27 +1739,35 @@ function buildSystemDecisions(
   plan: CasePlan | null,
   competencies: CompetencyState[],
   finished: boolean,
-) {
+): SystemDecision[] {
   if (import.meta.env.DEV && devDataParam === "many") return manySystemDecisions();
   if (devProgress) return [];
   const log = [...seededSystemDecisions];
   if (plan) {
     const variant = planVariant(plan);
-    const chance = chanceOf(startingTheta(plan.learnerId), variant.difficulty);
-    log.push(`Parada 1 de Elena: versión ${variant.name.toLowerCase()} (${chance} % estimado)`);
+    log.push({
+      kind: "Variante",
+      choice: `Elena, parada 1: versión ${variant.name.toLowerCase()}`,
+      reason: "deja tu probabilidad de acierto más cerca del 75 %",
+      chance: chanceOf(startingTheta(plan.learnerId), variant.difficulty),
+    });
   }
   if (finished) {
     const { candidate, competency, chance } = recommendNextCase(competencies);
     const status = describeCompetency(competency).label.toLowerCase();
-    log.push(
-      `Siguiente caso: ${candidate.mapName}, porque ${competency.name.toLowerCase()} está en ${status} (${Math.round(chance * 100)} %)`,
-    );
+    log.push({
+      kind: "Siguiente caso",
+      choice: candidate.mapName,
+      reason: `${competency.name.toLowerCase()} está en ${status}`,
+      chance: Math.round(chance * 100),
+    });
   }
   return log;
 }
 
 function formatDuration(seconds: number) {
   if (seconds < 60) return `${seconds} s`;
+  if (seconds % 60 === 0) return `${seconds / 60} min`;
   const rest = String(seconds % 60).padStart(2, "0");
   return `${Math.floor(seconds / 60)} min ${rest} s`;
 }
@@ -1584,6 +1809,48 @@ function CompletedRoute({ answers }: { answers: SavedAnswer[] }) {
   );
 }
 
+// Antes → después en una competencia. Sin 2 respuestas no hay nivel que comparar.
+function LevelChange({ before, after }: { before: CompetencyState; after: CompetencyState }) {
+  const beforeInfo = describeCompetency(before);
+  const afterInfo = describeCompetency(after);
+  const beforePercent = percentOf(before);
+  const afterPercent = percentOf(after);
+  const diff = afterPercent - beforePercent;
+  const sign = diff > 0 ? "+" : diff < 0 ? "−" : "";
+  return (
+    <li className="level-change">
+      <p className="level-change-name">
+        <CompetencyIcon id={after.id} />
+        {after.name}
+      </p>
+      {afterInfo.hasEvidence ? (
+        <p className="level-change-values">
+          <span className="before">
+            {beforeInfo.hasEvidence ? `${beforePercent} %` : "—"}
+            <span className="sr-only">Antes</span>
+          </span>
+          <ArrowRightIcon />
+          <strong className="after">
+            {afterPercent} %<span className="sr-only">Después</span>
+          </strong>
+          {beforeInfo.hasEvidence && (
+            <span className={`diff ${diff > 0 ? "up" : diff < 0 ? "down" : "same"}`}>
+              {diff === 0
+                ? "sin cambio"
+                : `${sign}${Math.abs(diff)} ${Math.abs(diff) === 1 ? "punto" : "puntos"}`}
+            </span>
+          )}
+        </p>
+      ) : (
+        <p className="level-change-values pending">
+          Aún sin evidencia suficiente: {after.n} de 2 respuestas
+        </p>
+      )}
+      <CompetencyStatus competency={after} />
+    </li>
+  );
+}
+
 function ElenaCaseResult() {
   const [answers] = useState<SavedAnswer[]>(readElenaAnswers);
   const [showReason, setShowReason] = useState(false);
@@ -1592,9 +1859,14 @@ function ElenaCaseResult() {
   useEffect(() => {
     sessionStorage.setItem("elena-closed", "1");
   }, []);
-  const competencies = competenciesAfterElena(answers, readCasePlan());
+  const plan = readCasePlan();
+  const competencies = competenciesAfterElena(answers, plan);
+  const before = startingCompetencies(plan?.learnerId ?? "bruno");
   const correctCount = answers.filter((answer) => answer?.correct).length;
   const noIdeaCount = answers.filter((answer) => answer?.answer === "No sé").length;
+  const wrongCount = answers.length - correctCount - noIdeaCount;
+  const totalSeconds = answers.reduce((sum, answer) => sum + (answer?.time ?? 0), 0);
+  const estimateSeconds = elenaStops.length * estimatedSecondsPerDecision;
   const {
     candidate: nextCase,
     competency: nextCaseCompetency,
@@ -1625,6 +1897,40 @@ function ElenaCaseResult() {
         </header>
         <div className="result-grid">
           <div>
+            <div className="result-overview">
+              <section className="result-outcome">
+                <h2>Cómo te fue</h2>
+                <OutcomeDonut correct={correctCount} noIdea={noIdeaCount} wrong={wrongCount} />
+              </section>
+              <section className="result-time">
+                <h2>Tiempo</h2>
+                <p className="time-total">
+                  <strong>{formatDuration(totalSeconds)}</strong>
+                  <span>frente a unos {formatDuration(estimateSeconds)} estimados</span>
+                </p>
+                <TimeBars
+                  estimate={estimatedSecondsPerDecision}
+                  estimateText={`~${formatDuration(estimatedSecondsPerDecision)} estimados`}
+                  items={elenaStops.map((item, index) => ({
+                    label: item.title,
+                    seconds: answers[index]?.time ?? 0,
+                    text: formatDuration(answers[index]?.time ?? 0),
+                  }))}
+                />
+              </section>
+            </div>
+            <section className="result-competencies">
+              <h2>Tus competencias</h2>
+              <ul className="level-change-list">
+                {elenaStops.map((stop) => (
+                  <LevelChange
+                    after={competencies.find(({ id }) => id === stop.competencyId)!}
+                    before={before.find(({ id }) => id === stop.competencyId)!}
+                    key={stop.competencyId}
+                  />
+                ))}
+              </ul>
+            </section>
             <section className="stops-summary-card">
               <h2>Qué pasó en cada parada</h2>
               {elenaStops.map((item, index) => {
@@ -1651,15 +1957,6 @@ function ElenaCaseResult() {
                   </div>
                 );
               })}
-            </section>
-            <section className="result-competencies">
-              <h2>Tus competencias</h2>
-              {elenaStops.map((stop) => (
-                <Competency
-                  competency={competencies.find(({ id }) => id === stop.competencyId)!}
-                  key={stop.competencyId}
-                />
-              ))}
             </section>
           </div>
           <aside className="next-case-result">
@@ -1750,6 +2047,19 @@ function TerritoryMap({
   return (
     <section className="territory" aria-label="Ruta de casos de Endocrinología">
       <div className="map-grid" />
+      <svg
+        aria-hidden="true"
+        className="territory-contours"
+        fill="none"
+        preserveAspectRatio="none"
+        viewBox="0 0 1200 360"
+      >
+        <path d="M-20 300C160 250 260 330 420 290S700 210 860 270 1100 300 1240 240" />
+        <path d="M-20 250C150 205 270 280 430 240S690 160 850 222 1100 250 1240 190" />
+        <path d="M-20 200C150 160 280 230 440 190S700 112 860 172 1110 200 1240 140" />
+        <path d="M-20 150C170 110 290 180 450 140S710 66 870 122 1110 150 1240 92" />
+        <path d="M-20 100C180 60 300 130 460 92S720 22 880 74 1120 100 1240 46" />
+      </svg>
       <CompassRose />
       <svg
         className="territory-route"
@@ -1789,6 +2099,7 @@ function TerritoryMap({
               )}
             </span>
             <span className="territory-label">
+              {stop.state === "current" && <span className="territory-next">Siguiente: </span>}
               {useWorstCase && stop.name === "Lucía" ? worstCaseLongName : stop.name}
               <span className="sr-only"> ({stopStateLabels[stop.state]})</span>
             </span>
@@ -1803,38 +2114,88 @@ function formatTheta(theta: number) {
   return theta.toFixed(2).replace("-", "−");
 }
 
+function percentOf(competency: CompetencyState) {
+  return Math.round(describeCompetency(competency).progress * 100);
+}
+
 function ProgressRow({
   competency,
+  points,
   showCalculation,
 }: {
   competency: CompetencyState;
+  points: ReturnType<typeof competencyPoints>;
   showCalculation: boolean;
 }) {
+  const { hasEvidence, progress } = describeCompetency(competency);
+  const last = points[points.length - 1];
+  const previous = points[points.length - 2];
+  const change = last && previous ? last.level - previous.level : null;
+  const direction = change === null ? null : change > 0 ? "up" : change < 0 ? "down" : "flat";
+  const changeText =
+    change === null
+      ? "Aún sin comparación"
+      : change === 0
+        ? "Igual que la respuesta anterior"
+        : `${change > 0 ? "Sube" : "Baja"} ${Math.abs(change)} ${Math.abs(change) === 1 ? "punto" : "puntos"} respecto a la respuesta anterior`;
   return (
-    <li className="progress-row">
-      <p className="progress-row-name">{competency.name}</p>
-      <CompetencyTrack competency={competency} />
-      <CompetencyStatus competency={competency} />
-      <span className="progress-row-count">
-        {competency.n} {competency.n === 1 ? "respuesta" : "respuestas"}
-      </span>
+    <>
+      <tr className="progress-row" role="row">
+        <th className="progress-row-name" role="rowheader" scope="row">
+          {competency.name}
+        </th>
+        <td className="progress-row-level" role="cell">
+          <span className="ring-small">
+            <StatRing segments={hasEvidence ? [{ fraction: progress, color: "#43d6be" }] : []}>
+              <strong>{hasEvidence ? percentOf(competency) : "—"}</strong>
+            </StatRing>
+          </span>
+          <span className="sr-only">{hasEvidence ? `${percentOf(competency)} %` : "Sin dato"}</span>
+        </td>
+        <td className="progress-row-status" role="cell">
+          <CompetencyStatus competency={competency} />
+        </td>
+        <td className="progress-row-count" role="cell">
+          {answersLabel(competency.n)}
+        </td>
+        <td className="progress-row-trend" role="cell">
+          {direction ? (
+            <span className={`trend ${direction}`}>
+              <TrendIcon direction={direction} />
+              <span className="sr-only">{changeText}</span>
+              <span aria-hidden="true">
+                {change === 0 ? "Igual" : `${change! > 0 ? "+" : "−"}${Math.abs(change!)}`}
+              </span>
+            </span>
+          ) : (
+            <span className="trend none">
+              <span aria-hidden="true">—</span>
+              <span className="sr-only">{changeText}</span>
+            </span>
+          )}
+        </td>
+      </tr>
       {showCalculation && (
-        <dl className="calculation-row">
-          <div>
-            <dt>θ</dt>
-            <dd>{formatTheta(competency.theta)}</dd>
-          </div>
-          <div>
-            <dt>n</dt>
-            <dd>{competency.n}</dd>
-          </div>
-          <div>
-            <dt>P</dt>
-            <dd>{Math.round(probability(competency.theta, 0) * 100)} %</dd>
-          </div>
-        </dl>
+        <tr className="calculation-tr" role="row">
+          <td colSpan={5} role="cell">
+            <dl className="calculation-row">
+              <div>
+                <dt>θ</dt>
+                <dd>{formatTheta(competency.theta)}</dd>
+              </div>
+              <div>
+                <dt>n</dt>
+                <dd>{competency.n}</dd>
+              </div>
+              <div>
+                <dt>P</dt>
+                <dd>{Math.round(probability(competency.theta, 0) * 100)} %</dd>
+              </div>
+            </dl>
+          </td>
+        </tr>
       )}
-    </li>
+    </>
   );
 }
 
@@ -1888,37 +2249,189 @@ function VariantExplanation({ plan }: { plan: CasePlan | null }) {
   );
 }
 
-function Sparkline({ label, trail }: { label: string; trail: number[] }) {
-  const toX = (index: number) => (index / (trail.length - 1)) * 100;
-  const toY = (value: number) => (1 - value) * 100;
-  const percent = (value: number) => Math.round(value * 100);
-  const last = trail[trail.length - 1];
+/** Mueve el recordatorio abierto o cerrado sin saltos: la altura sigue al contenido. */
+function Collapse({ open, children }: { open: boolean; children: ReactNode }) {
   return (
-    <div
-      aria-label={`${label}: de ${percent(trail[0])} % a ${percent(last)} % en ${trail.length} respuestas.`}
-      className="sparkline-row"
-      role="img"
-    >
-      <span>{percent(trail[0])} %</span>
-      <div className="sparkline">
-        <svg aria-hidden="true" fill="none" preserveAspectRatio="none" viewBox="0 0 100 100">
-          <line className="sparkline-mid" x1="0" x2="100" y1="50" y2="50" />
-          <polyline
-            className="sparkline-line"
-            points={trail.map((value, index) => `${toX(index)},${toY(value)}`).join(" ")}
-          />
-        </svg>
-        {trail.map((value, index) => (
-          <span
-            className={`sparkline-point ${index === trail.length - 1 ? "last" : ""}`}
-            key={index}
-            style={{ left: `${toX(index)}%`, top: `${toY(value)}%` }}
-            title={`Respuesta ${index + 1}: ${percent(value)} %`}
-          />
-        ))}
-      </div>
-      <strong>{percent(last)} %</strong>
+    <div className={`collapse ${open ? "open" : ""}`} inert={!open}>
+      <div>{children}</div>
     </div>
+  );
+}
+
+const reminderSource = "Fuente: NICE NG145. Contenido sin validación médica.";
+
+/** Lo que conviene recordar tras un error del banco, o undefined si el ejemplo no lo tiene. */
+function reminderFor(errorTitle: string) {
+  return elenaStops.find((stop) =>
+    (stop.options as CaseOption[]).some((option) => option.errorTitle === errorTitle),
+  )?.reminder;
+}
+
+// «Para recordar» es narrativa clínica: el texto va en la voz de la historia y la fuente al pie.
+function RememberCard({
+  reminder,
+  collapsible = false,
+  className = "",
+}: {
+  reminder: string;
+  collapsible?: boolean;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(true);
+  const panelId = useId();
+  const content = (
+    <>
+      <div className="remember-body">
+        <p>{reminder}</p>
+      </div>
+      <span className="remember-source">{reminderSource}</span>
+    </>
+  );
+  return (
+    <div className={`remember-card ${className}`}>
+      {collapsible ? (
+        <button
+          aria-controls={panelId}
+          aria-expanded={open}
+          className="remember-head"
+          onClick={() => setOpen((current) => !current)}
+          type="button"
+        >
+          <BookmarkIcon />
+          <strong>Para recordar</strong>
+          <ChevronIcon />
+        </button>
+      ) : (
+        <div className="remember-head">
+          <BookmarkIcon />
+          <strong>Para recordar</strong>
+        </div>
+      )}
+      {collapsible ? (
+        <div id={panelId}>
+          <Collapse open={open}>{content}</Collapse>
+        </div>
+      ) : (
+        content
+      )}
+    </div>
+  );
+}
+
+function ErrorCard({ title, count, cases }: { title: string; count: number; cases: string[] }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const reminder = reminderFor(title);
+  return (
+    <li className={`error-card ${count > 1 ? "repeated" : "once"}`}>
+      <div className="error-card-top">
+        <h3>{title}</h3>
+        <span className="error-count">
+          <span aria-hidden="true">×{count}</span>
+          <span className="sr-only">{count === 1 ? "una vez" : `${count} veces`}</span>
+        </span>
+      </div>
+      {count === 1 && (
+        <p className="error-note">Visto una vez. Lo confirmaremos si se repite en otro caso.</p>
+      )}
+      <div className="error-cases">
+        <span>Apareció en</span>
+        <ul>
+          {cases.map((name) => (
+            <li key={name}>
+              {hasPortrait(name) ? (
+                <Portrait patient={name} />
+              ) : (
+                <span aria-hidden="true" className="initial">
+                  {name[0]}
+                </span>
+              )}
+              {name}
+            </li>
+          ))}
+        </ul>
+      </div>
+      {reminder && (
+        <>
+          <button
+            aria-controls={`${id}-panel`}
+            aria-expanded={open}
+            className="review-button"
+            onClick={() => setOpen((current) => !current)}
+            type="button"
+          >
+            Repasar
+            <ChevronIcon />
+          </button>
+          <div id={`${id}-panel`}>
+            <Collapse open={open}>
+              <RememberCard reminder={reminder} />
+            </Collapse>
+          </div>
+        </>
+      )}
+    </li>
+  );
+}
+
+function LevelEvolution({
+  competencies,
+  decisions,
+}: {
+  competencies: CompetencyState[];
+  decisions: Decision[];
+}) {
+  const withTrail = competencies.filter((competency) => competency.n >= 2);
+  const [chosenId, setChosenId] = useState<CompetencyId | null>(null);
+  // El trazo se dibuja al llegar; al explorar otras competencias aparece ya hecho.
+  const [explored, setExplored] = useState(false);
+  const labelId = useId();
+  if (withTrail.length === 0) {
+    return (
+      <p className="metric-empty">Aparecerá cuando una competencia tenga al menos 2 respuestas.</p>
+    );
+  }
+  const selected = withTrail.find(({ id }) => id === chosenId) ?? withTrail[0];
+  const points = competencyPoints(decisions, selected.id);
+  const ids = withTrail.map(({ id }) => id);
+  return (
+    <>
+      <div className="level-toolbar">
+        <span id={labelId}>Competencia</span>
+        <div aria-labelledby={labelId} className="level-selector" role="radiogroup">
+          {withTrail.map((competency, index) => (
+            <button
+              aria-checked={competency.id === selected.id}
+              className={competency.id === selected.id ? "active" : ""}
+              key={competency.id}
+              onClick={() => {
+                setExplored(true);
+                setChosenId(competency.id);
+              }}
+              onKeyDown={(event) =>
+                moveWithinRadioGroup(event, index, ids, (id) => {
+                  setExplored(true);
+                  setChosenId(id as CompetencyId);
+                })
+              }
+              role="radio"
+              tabIndex={competency.id === selected.id ? 0 : -1}
+              type="button"
+            >
+              <CompetencyIcon id={competency.id} />
+              <span>{competency.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="level-now">
+        <CompetencyStatus competency={selected} />
+        <span>
+          Nivel actual: <strong>{percentOf(selected)} %</strong> · {answersLabel(selected.n)}
+        </span>
+      </div>
+      <LevelChart animate={!explored} key={selected.id} name={selected.name} points={points} />
+    </>
   );
 }
 
@@ -1931,83 +2444,109 @@ function ProgressMetrics({
   decisions: Decision[];
   completedCount: number;
   competencies: CompetencyState[];
-  systemDecisions: string[];
+  systemDecisions: SystemDecision[];
 }) {
   const summary = summarizeDecisions(decisions);
   const enough = summary.total >= 2;
   const times = (count: number) => `${count} ${count === 1 ? "vez" : "veces"}`;
-  const indicators = [
-    { label: "Casos completados", value: completedCount.toLocaleString("es") },
-    { label: "Decisiones respondidas", value: summary.total.toLocaleString("es") },
-    { label: "Aciertos", value: `${summary.correctRate} %` },
-    { label: "Tiempo medio por decisión", value: formatDuration(summary.averageSeconds) },
-  ];
-  const withTrail = competencies.filter((competency) => competency.n >= 2);
   const visibleLog = systemDecisions.slice(-10);
+  const average = Math.round(summary.seconds / Math.max(1, summary.total));
+  const share = (count: number) => (summary.total ? count / summary.total : 0);
+  const indicators: Array<{
+    label: string;
+    caption?: string;
+    value: string;
+    segments: Parameters<typeof StatRing>[0]["segments"];
+  }> = [
+    {
+      label: "Aciertos",
+      value: `${summary.correctRate} %`,
+      segments: [{ fraction: summary.correctRate / 100, color: "#43d6be" }],
+    },
+    {
+      label: "Decisiones respondidas",
+      value: summary.total.toLocaleString("es"),
+      segments: [
+        { fraction: share(summary.correctCount), color: "#43d6be" },
+        { fraction: share(summary.wrongCount), color: "#c2392f" },
+        { fraction: share(summary.noIdeaCount), color: "#b9b6d6" },
+      ],
+    },
+    {
+      label: "Casos completados",
+      caption: `de ${casesInTerritory} en el territorio`,
+      value: `${completedCount}/${casesInTerritory}`,
+      segments: [{ fraction: completedCount / casesInTerritory, color: "#2e2a78" }],
+    },
+    {
+      label: "Tiempo medio por decisión",
+      caption: `de ~${formatDuration(estimatedSecondsPerDecision)} estimados`,
+      value: formatDuration(average),
+      segments: [
+        { fraction: Math.min(1, average / estimatedSecondsPerDecision), color: "#2e2a78" },
+      ],
+    },
+  ];
+  // Los anillos se llenan casi a la vez; los pequeños desfases evitan un compás de metrónomo.
+  const ringDelays = [0, 50, 90, 120];
 
   return (
     <div className="metrics">
       <section aria-label="Indicadores">
         <dl className="indicators">
-          {indicators.map(({ label, value }) => (
-            <div key={label}>
-              <dt>{label}</dt>
+          {indicators.map(({ label, caption, value, segments }, index) => (
+            <div className="indicator" key={label}>
               <dd>
-                {enough ? value : "—"}
-                {!enough && <small>Sin evidencia suficiente</small>}
+                <StatRing delay={ringDelays[index]} segments={enough ? segments : []}>
+                  <strong className={enough && value.length > 5 ? "compact" : ""}>
+                    {enough ? value : "—"}
+                  </strong>
+                </StatRing>
               </dd>
+              <dt>
+                {label}
+                {enough && caption && <small>{caption}</small>}
+                {!enough && <small>Sin evidencia suficiente</small>}
+              </dt>
             </div>
           ))}
         </dl>
         {summary.total > 0 && (
-          <p className="no-idea-rate">
-            Respondiste «No sé» en {summary.noIdeaCount} de {summary.total}{" "}
-            {summary.total === 1 ? "decisión" : "decisiones"}.
-          </p>
+          <div className="no-idea-callout">
+            <InfoIcon />
+            <div>
+              <strong>
+                Respondiste «No sé» en {summary.noIdeaCount} de {summary.total}{" "}
+                {summary.total === 1 ? "decisión" : "decisiones"}.
+              </strong>
+              <p>Responder «No sé» es mejor que adivinar: nos ayuda a elegir tu siguiente caso.</p>
+            </div>
+          </div>
         )}
       </section>
 
       <section className="metric-section">
         <h2>Cómo evoluciona tu nivel</h2>
-        {withTrail.length === 0 ? (
-          <p className="metric-empty">
-            Aparecerá cuando una competencia tenga al menos 2 respuestas.
-          </p>
-        ) : (
-          <ul className="trend-list">
-            {withTrail.map((competency) => (
-              <li key={competency.id}>
-                <p>{competency.name}</p>
-                <Sparkline
-                  label={competency.name}
-                  trail={competencyTrail(decisions, competency.id)}
-                />
-                <CompetencyStatus competency={competency} />
-              </li>
-            ))}
-          </ul>
-        )}
+        <LevelEvolution competencies={competencies} decisions={decisions} />
       </section>
 
       <div className="metric-pair">
         <section className="metric-section">
           <h2>Tu seguridad frente a tus aciertos</h2>
-          <ul className="confidence-list">
-            {summary.confidence.map(({ level, count, rate }) => (
-              <li key={level}>
-                <strong>{level}</strong>
-                <span>{times(count)}</span>
-                <div className={`progress-track ${rate === null ? "dashed" : ""}`}>
-                  {rate !== null && <span style={{ width: `${rate}%` }} />}
-                </div>
-                <span className="confidence-rate">{rate === null ? "—" : `${rate} %`}</span>
-              </li>
-            ))}
-          </ul>
+          {summary.confidence.every(({ count }) => count === 0) ? (
+            <p className="metric-empty">
+              Aparecerá cuando respondas y marques cuánta seguridad tienes.
+            </p>
+          ) : (
+            <ConfidenceChart
+              average={summary.total ? summary.correctRate : null}
+              rows={summary.confidence}
+            />
+          )}
           {summary.overconfidentCount > 0 && (
             <p className="overconfidence-note">
-              {times(summary.overconfidentCount)} estabas muy seguro y no era la correcta. Vale la
-              pena revisar esas decisiones.
+              <strong>{times(summary.overconfidentCount)}</strong> estabas muy seguro y no era la
+              correcta. Vale la pena revisar esas decisiones.
             </p>
           )}
         </section>
@@ -2018,31 +2557,41 @@ function ProgressMetrics({
             <p className="metric-empty">Todavía no hay respuestas incorrectas que agrupar.</p>
           ) : (
             <ul className="error-list">
-              {summary.errors.map(({ title, count }) => (
-                <li key={title}>
-                  <div>
-                    <strong>{title}</strong>
-                    {count === 1 && (
-                      <p>Visto una vez. Lo confirmaremos si se repite en otro caso.</p>
-                    )}
-                  </div>
-                  {count > 1 && <span>{times(count)}</span>}
-                </li>
+              {summary.errors.map(({ title, count, cases }) => (
+                <ErrorCard cases={cases} count={count} key={title} title={title} />
               ))}
             </ul>
           )}
         </section>
       </div>
 
-      <section className="metric-section">
-        <h2>Decisiones del sistema</h2>
+      <section className="metric-section system-voice">
+        <header>
+          <CompassIcon />
+          <h2>Decisiones del sistema</h2>
+        </header>
         {visibleLog.length === 0 ? (
           <p className="metric-empty">El sistema aún no ha tomado decisiones.</p>
         ) : (
           <>
-            <ol className="decision-log">
-              {visibleLog.map((decision) => (
-                <li key={decision}>{decision}</li>
+            <ol className="system-timeline">
+              {visibleLog.map((decision, index) => (
+                <li key={`${decision.kind}-${decision.choice}-${index}`}>
+                  <span aria-hidden="true" className="timeline-node" />
+                  <div className="timeline-copy">
+                    <span className="timeline-kind">{decision.kind}</span>
+                    <p className="timeline-choice">{decision.choice}</p>
+                    <p className="timeline-reason">Porque {decision.reason}.</p>
+                  </div>
+                  {decision.chance !== undefined && (
+                    <span className="chance-chip">
+                      <span aria-hidden="true">P {decision.chance} %</span>
+                      <span className="sr-only">
+                        Probabilidad de acierto estimada: {decision.chance} %
+                      </span>
+                    </span>
+                  )}
+                </li>
               ))}
             </ol>
             {systemDecisions.length > visibleLog.length && (
@@ -2078,7 +2627,7 @@ function ProgressPage() {
         <h1>Tu progreso</h1>
         <p className="progress-summary">
           Endocrinología: {completed.length}{" "}
-          {completed.length === 1 ? "caso completado" : "casos completados"} de 26.
+          {completed.length === 1 ? "caso completado" : "casos completados"} de {casesInTerritory}.
         </p>
         <TerritoryMap territoryStops={buildTerritoryStops(onMap, current)} />
         <ProgressMetrics
@@ -2097,15 +2646,38 @@ function ProgressPage() {
               </span>
             </p>
           )}
-          <ul className="progress-rows">
-            {competencies.map((competency) => (
-              <ProgressRow
-                competency={competency}
-                key={competency.id}
-                showCalculation={showCalculation}
-              />
-            ))}
-          </ul>
+          <table className="progress-table" role="table">
+            <caption className="sr-only">Nivel, estado y tendencia por competencia</caption>
+            <thead role="rowgroup">
+              <tr role="row">
+                <th role="columnheader" scope="col">
+                  Competencia
+                </th>
+                <th role="columnheader" scope="col">
+                  Nivel
+                </th>
+                <th role="columnheader" scope="col">
+                  Estado
+                </th>
+                <th role="columnheader" scope="col">
+                  Respuestas
+                </th>
+                <th role="columnheader" scope="col">
+                  Tendencia
+                </th>
+              </tr>
+            </thead>
+            <tbody role="rowgroup">
+              {competencies.map((competency) => (
+                <ProgressRow
+                  competency={competency}
+                  key={competency.id}
+                  points={competencyPoints(decisions, competency.id)}
+                  showCalculation={showCalculation}
+                />
+              ))}
+            </tbody>
+          </table>
           {showCalculation && <VariantExplanation plan={plan} />}
         </section>
         <div className="progress-foot">
