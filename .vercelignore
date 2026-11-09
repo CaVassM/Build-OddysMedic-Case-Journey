@@ -1,0 +1,19 @@
+# Lo que no hace falta para construir ni servir la app.
+.claude/
+plans/
+
+# Capturas de pantalla
+capturas/
+screenshots/
+/*.png
+
+# Herramientas de Figma Make. Se conserva .figma/make/site.json: vite.config.ts lo importa al construir.
+.figma/README.md
+.figma/make/analyze-routes
+.figma/make/deploy
+.figma/make/deploy-preview
+.figma/make/dev
+.figma/make/dev.json
+.figma/make/format
+.figma/make/install
+.figma/make/langserver

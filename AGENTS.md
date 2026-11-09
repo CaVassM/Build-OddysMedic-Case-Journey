@@ -64,6 +64,19 @@ Competencies and the decision history, including θ after each attempt, are reca
 
 There is no test runner or linter. Check changes with `pnpm exec tsc --noEmit` and `pnpm build`, format only the files you changed with `pnpm exec oxfmt <files>`, then walk the flow in a browser.
 
+## Despliegue
+
+The app is a static site deployed on Vercel. There is no GitHub Action: Vercel is connected to the GitHub repository and deploys by itself on every push to `main` (other branches get a preview URL).
+
+- `vercel.json` holds the whole configuration: framework `vite`, `pnpm install --frozen-lockfile`, `pnpm build`, and output folder `dist`. It also sets `ENABLE_EXPERIMENTAL_COREPACK=1` for the build so Vercel uses the exact pnpm from `packageManager` (`pnpm@10.34.3`, the same as `.mise.toml`). `engines.node` is `>=20`; the project was built on Node 22.
+- Every route is rewritten to `/index.html` (the app routes by `window.location.pathname`, so reloading `/inicio`, `/progreso` or `/caso/elena/jugar` must not return a 404). `/assets/` is excluded from the rewrite so a missing hashed file is a real 404 and never a cached copy of the HTML.
+- Headers: `/assets/*` is cached for a year as immutable (Vite hashes the file names); everything else, including `index.html`, is never cached.
+- `.vercelignore` leaves out `.claude/`, `plans/`, screenshots and Figma Make's helper scripts. It keeps `.figma/make/site.json`, because `vite.config.ts` imports it at build time.
+- The production bundle contains no development tools: `?data=worst|empty|one|many` and its selector are gated by `import.meta.env.DEV` and are removed from the build. "Probar como" and "Reiniciar demo" are part of the demo and stay. `robots.txt` and a `noindex` meta come from `.figma/make/site.json`, so the site is not indexed.
+- Fonts come from Google Fonts at runtime, so the demo needs an internet connection to show the intended typography.
+
+To check a build locally: `pnpm install --frozen-lockfile && pnpm exec tsc --noEmit && pnpm build && pnpm preview`.
+
 ## Styling
 
 This project uses **Tailwind CSS v4** through the `@tailwindcss/vite` plugin configured in `vite.config.ts`. `src/index.css` imports Tailwind with `@import 'tailwindcss';`. The existing screens use hand-written classes with fixed hex colors from `src/index.css`, not Tailwind utility classes (`sr-only` is the exception), so follow that pattern when extending them. This scaffold does not need a Tailwind config file or PostCSS config.
