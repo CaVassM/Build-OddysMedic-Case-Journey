@@ -44,6 +44,14 @@ export function ArrowRightIcon() {
   );
 }
 
+export function ArrowLeftIcon() {
+  return (
+    <Icon>
+      <path d="M16 10H5m4.5-4.5L5 10l4.5 4.5" />
+    </Icon>
+  );
+}
+
 export function CheckIcon() {
   return (
     <Icon>

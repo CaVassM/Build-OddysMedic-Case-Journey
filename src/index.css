@@ -21,6 +21,7 @@
   body {
     margin: 0;
     font-size: 17px;
+    font-variant-numeric: tabular-nums;
   }
 
   a {
@@ -73,6 +74,15 @@
 .demo-learner-options label:has(input:focus-visible) {
   outline: 2px solid currentColor;
   outline-offset: -4px;
+}
+
+/* Superficie estándar: todo bloque de contenido va en una tarjeta. Radios: hero 20, tarjeta 16, interior 12. */
+.card {
+  padding: 24px;
+  border: 1px solid #e3e1f0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(26, 24, 64, 0.06);
 }
 
 .topbar {
@@ -545,26 +555,78 @@ article.specialty-card .portrait {
 .student-main {
   width: min(1200px, calc(100% - 64px));
   margin: 0 auto;
-  padding: 64px 0 96px;
+  padding: 48px 0 96px;
   display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 64px;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 40px 48px;
   align-items: start;
 }
 .home-hero {
   grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
-  gap: 40px;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
+  gap: 20px 32px;
 }
-.home-hero h1 {
+.home-greeting h1 {
   margin: 0;
   font-family: "Bricolage Grotesque", sans-serif;
-  font-size: 52px;
+  font-size: 40px;
   font-weight: 800;
   letter-spacing: -0.04em;
-  line-height: 1.02;
+  line-height: 1.05;
+}
+.home-greeting p {
+  margin: 8px 0 0;
+  color: #5d5b7a;
+  font-size: 18px;
+}
+/* «Mundo actual»: dónde estás en Mundo → Territorio → Misión, con tu avance. */
+.mundo-actual {
+  display: flex;
+  flex: 0 1 360px;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  padding: 16px 20px;
+  border: 1px solid #e3e1f0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(26, 24, 64, 0.06);
+}
+.mundo-actual-isla {
+  display: block;
+  flex: none;
+  width: 56px;
+}
+.mundo-actual-body {
+  min-width: 0;
+  flex: 1;
+}
+.mundo-actual-ruta {
+  margin: 0;
+  color: #1a1840;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.mundo-actual-avance {
+  margin: 2px 0 8px;
+  color: #5d5b7a;
+  font-size: 14px;
+}
+.mundo-actual-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  color: #2e2a78;
+  font-size: 15px;
+  font-weight: 700;
+}
+.mundo-actual-link:hover {
+  text-decoration: underline;
 }
 .next-case-card {
   position: relative;
@@ -705,15 +767,8 @@ article.specialty-card .portrait {
   background: #e3e1f0;
   color: #1a1840;
 }
-.competencies-card {
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  margin-top: 84px;
-}
 .competencies-card h2 {
-  margin: 0 0 25px;
+  margin: 0 0 22px;
   font-size: 30px;
   line-height: 1.1;
 }
@@ -1411,7 +1466,7 @@ article.specialty-card .portrait {
   margin: 6px 0 -6px;
   padding: 5px 12px;
   border: 1.5px solid #2e2a78;
-  border-radius: 10px;
+  border-radius: 12px;
   background: #f1f0fa;
   box-shadow: inset 0 0 0 1px #2e2a78;
   color: #1a1840;
@@ -1437,7 +1492,7 @@ article.specialty-card .portrait {
 .confidence-control > div {
   display: inline-flex;
   border: 1px solid var(--hairline);
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
 }
 .confidence-control button {
@@ -1461,7 +1516,7 @@ article.specialty-card .portrait {
   flex: none;
   padding: 0 26px;
   border: 1px solid #2e2a78;
-  border-radius: 10px;
+  border-radius: 12px;
   background: #2e2a78;
   color: white;
   cursor: pointer;
@@ -1550,13 +1605,6 @@ article.specialty-card .portrait {
   width: 24px;
   height: 24px;
 }
-.knowledge-panel {
-  padding: 22px 24px 20px;
-  border-radius: 16px;
-  background: white;
-  border: 1px solid var(--hairline);
-  box-shadow: var(--object-shadow);
-}
 .knowledge-panel h2 {
   margin: 0 0 16px;
   color: #1a1840;
@@ -1619,61 +1667,33 @@ article.specialty-card .portrait {
   font-weight: 400;
   text-align: left;
 }
-.knowledge-row.out-of-range strong {
-  color: #c2392f;
+.lab-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 13px;
+  align-items: baseline;
+}
+.lab-name {
+  color: #5d5b7a;
+  font-size: 15px;
+  line-height: 1.35;
+}
+.lab-value {
+  color: #1a1840;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: right;
+}
+.lab-reference {
+  grid-column: 2;
+  color: #5d5b7a;
+  font-size: 14px;
+  line-height: 1.35;
+  text-align: right;
 }
 .learned-row {
   padding-top: 12px;
   border-top: 1px solid var(--hairline);
-}
-.range-bar {
-  position: relative;
-  grid-column: 1 / -1;
-  height: 30px;
-}
-.range-bar::before {
-  content: "";
-  position: absolute;
-  top: 3px;
-  right: 0;
-  left: 0;
-  height: 8px;
-  border-radius: 999px;
-  background: #f4f3fb;
-}
-.range-band {
-  position: absolute;
-  top: 3px;
-  height: 8px;
-  background: #e3e1f0;
-}
-.range-connector {
-  position: absolute;
-  top: 6px;
-  height: 2px;
-  background-image: repeating-linear-gradient(90deg, #c2392f 0 4px, transparent 4px 7px);
-}
-.range-dot {
-  position: absolute;
-  top: 0;
-  width: 14px;
-  height: 14px;
-  border: 2px solid white;
-  border-radius: 50%;
-  background: #2e2a78;
-  transform: translateX(-50%);
-}
-.range-dot.out {
-  background: #c2392f;
-}
-.range-limit {
-  position: absolute;
-  top: 15px;
-  color: #5d5b7a;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  line-height: 15px;
-  transform: translateX(-50%);
 }
 .lab-note {
   margin: 16px 0 0;
@@ -1863,23 +1883,6 @@ article.specialty-card .portrait {
   margin-top: 56px;
   align-items: start;
 }
-.stops-summary-card {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-.stops-summary-card h2,
-.result-competencies h2 {
-  margin: 0;
-  color: #1a1840;
-  font-family: "Bricolage Grotesque", sans-serif;
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-}
-.stops-summary-card h2 {
-  padding: 0 0 16px;
-}
 .stop-summary-row {
   min-height: 70px;
   display: grid;
@@ -1934,16 +1937,6 @@ article.specialty-card .portrait {
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
-}
-.result-competencies {
-  margin-top: 48px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-.result-competencies h2 {
-  margin-bottom: 20px;
 }
 .next-case-result {
   position: relative;
@@ -2796,6 +2789,78 @@ article.specialty-card .portrait {
 .time-bars {
   margin: 0;
 }
+/* Tiempo por parada: [etapa 120][barra 1fr][valor, mínimo 48]. Una sola cuadrícula alinea todas las filas;
+   la columna de valores crece solo lo que pida «2 min 20 s». La etiqueta de lo estimado va en su propia fila. */
+.time-grid {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) minmax(48px, max-content);
+  column-gap: 12px;
+  align-items: center;
+}
+.time-stage {
+  grid-column: 1;
+  color: #1a1840;
+  font-size: 15px;
+  font-weight: 700;
+}
+.time-track {
+  grid-column: 2;
+  display: block;
+  height: 22px;
+}
+.time-fill {
+  display: block;
+  width: calc(var(--w) * 100%);
+  height: 100%;
+  border-radius: 0 6px 6px 0;
+  background: #2e2a78;
+  transform-origin: left;
+}
+.time-bars.animate .time-fill {
+  animation: time-grow 600ms var(--ease-out) calc(var(--index) * 50ms) backwards;
+}
+@keyframes time-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+.time-value {
+  grid-column: 3;
+  color: #1a1840;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+.time-estimate-cell {
+  position: relative;
+  grid-column: 2;
+  grid-row: 1;
+  align-self: stretch;
+}
+.time-estimate-label {
+  position: absolute;
+  bottom: 6px;
+  left: calc(var(--p) * 100%);
+  color: #5d5b7a;
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+.time-estimate-span {
+  position: relative;
+  grid-column: 2;
+  align-self: stretch;
+  pointer-events: none;
+}
+.time-estimate-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--p) * 100%);
+  border-left: 1.5px dashed #5d5b7a;
+}
 
 .overconfidence-note {
   margin: 14px 0 0;
@@ -3353,22 +3418,30 @@ button.remember-head {
 /* ------------------------------------------------------------------ */
 /* /caso/elena/resultado                                                */
 /* ------------------------------------------------------------------ */
+.result-stack {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
 .result-overview {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-  gap: 40px;
-  align-items: start;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 24px;
+  align-items: stretch;
 }
 .result-outcome,
 .result-time {
   min-width: 0;
 }
 .result-outcome h2,
-.result-time h2 {
-  margin: 0 0 18px;
+.result-time h2,
+.result-competencies h2,
+.stops-summary-card h2 {
+  margin: 0 0 16px;
+  padding: 0;
   color: #1a1840;
   font-family: "Bricolage Grotesque", sans-serif;
-  font-size: 30px;
+  font-size: 24px;
   font-weight: 800;
   letter-spacing: -0.03em;
 }
@@ -3448,12 +3521,6 @@ button.remember-head {
   color: #5d5b7a;
   font-size: 15px;
 }
-.result-competencies + .stops-summary-card {
-  margin-top: 56px;
-}
-.stops-summary-card h2 {
-  font-size: 24px;
-}
 .level-change-list {
   display: grid;
   margin: 0;
@@ -3462,55 +3529,69 @@ button.remember-head {
 }
 .level-change {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.5fr) auto;
+  /* [ícono][nombre][antes][→][ahora][delta][estado]: las cifras se alinean de una fila a otra. */
+  grid-template-columns: 20px minmax(0, 1fr) 56px 16px 72px 96px 160px;
   align-items: center;
-  gap: 8px 20px;
-  padding: 16px 0;
+  column-gap: 8px;
+  padding: 14px 0;
   border-top: 1px solid var(--hairline);
+}
+.level-change > .icon:first-child {
+  width: 20px;
+  height: 20px;
+  color: #2e2a78;
 }
 .level-change-name {
   min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
   margin: 0;
   font-size: 16px;
   font-weight: 700;
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
-.level-change-name .icon {
-  color: #2e2a78;
-}
-.level-change-values {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-  margin: 0;
-}
-.level-change-values .before {
+.level-change .before {
   color: #5d5b7a;
+  font-family: "Bricolage Grotesque", sans-serif;
   font-size: 18px;
-  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
 }
-.level-change-values .icon {
+.level-change > .icon-arrow {
+  width: 16px;
+  height: 16px;
   color: #5d5b7a;
 }
-.level-change-values .after {
+.level-change .after {
   color: #1a1840;
   font-family: "Bricolage Grotesque", sans-serif;
-  font-size: 30px;
-  font-variant-numeric: tabular-nums;
+  font-size: 24px;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1;
+  text-align: right;
+  white-space: nowrap;
 }
-.level-change-values .diff {
+.level-change .diff {
+  justify-self: start;
   padding: 2px 10px;
   border-radius: 999px;
   font-size: 14px;
   font-weight: 700;
+  white-space: nowrap;
+}
+.level-change .status-chip {
+  justify-self: end;
+  border-radius: 12px;
+  line-height: 1.25;
+  text-align: center;
+}
+.level-change-pending {
+  grid-column: 3 / 7;
+  margin: 0;
+  color: #5d5b7a;
+  font-size: 15px;
+  line-height: 1.3;
 }
 .diff.up {
   background: #e3faf5;
@@ -3523,11 +3604,6 @@ button.remember-head {
 .diff.same {
   background: #f4f3fb;
   color: #5d5b7a;
-}
-.level-change-values.pending {
-  display: block;
-  color: #5d5b7a;
-  font-size: 15px;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -3604,9 +3680,6 @@ button.remember-head {
   .case-map {
     margin: 24px 0 32px;
   }
-  .competencies-card {
-    margin-top: 0;
-  }
   .hero {
     min-height: auto;
   }
@@ -3615,10 +3688,6 @@ button.remember-head {
   }
   .student-main {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .home-hero {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
   }
   .metric-pair {
     grid-template-columns: minmax(0, 1fr);
@@ -3757,8 +3826,11 @@ button.remember-head {
     padding: 38px 0 60px;
     gap: 32px;
   }
-  .home-hero h1 {
-    font-size: 38px;
+  .home-greeting h1 {
+    font-size: 36px;
+  }
+  .mundo-actual {
+    flex-basis: 100%;
   }
   .next-case-card > .portrait {
     top: 20px;
@@ -3779,9 +3851,6 @@ button.remember-head {
   }
   .recent-cases {
     margin-top: 31px;
-  }
-  .competencies-card {
-    padding: 23px 20px 20px;
   }
   .case-intro {
     width: min(100% - 32px, 1200px);
@@ -3926,9 +3995,6 @@ button.remember-head {
     padding: 12px 15px;
     font-size: 17px;
   }
-  .knowledge-panel {
-    padding: 21px 18px;
-  }
   .knowledge-tabs {
     gap: 13px;
   }
@@ -4008,10 +4074,30 @@ button.remember-head {
     text-align: right;
   }
   .level-change {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: 20px 56px 16px 72px minmax(0, 1fr);
+    row-gap: 8px;
   }
   .level-change-name {
-    grid-column: 1 / -1;
+    grid-column: 2 / -1;
+  }
+  .level-change .before {
+    grid-column: 2;
+  }
+  .level-change > .icon-arrow {
+    grid-column: 3;
+  }
+  .level-change .after {
+    grid-column: 4;
+  }
+  .level-change .diff {
+    grid-column: 5;
+  }
+  .level-change-pending {
+    grid-column: 2 / -1;
+  }
+  .level-change .status-chip {
+    grid-column: 2 / -1;
+    justify-self: start;
   }
 }
 
@@ -4111,11 +4197,7 @@ button.remember-head {
 .explore-missions {
   margin-top: 56px;
 }
-.explore-territories {
-  margin-top: 72px;
-}
-.explore-missions h2,
-.explore-territories h2 {
+.explore-missions h2 {
   margin: 0 0 20px;
   font-family: "Bricolage Grotesque", sans-serif;
   font-size: 30px;
@@ -4320,42 +4402,6 @@ button.remember-head {
 .mission-link:hover {
   text-decoration: underline;
 }
-.territory-cards {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.territory-cards li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 20px 22px;
-  border: 1.5px dashed #c9c6e3;
-  border-radius: 16px;
-  color: #5d5b7a;
-}
-.territory-cards strong {
-  font-family: "Bricolage Grotesque", sans-serif;
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-.territory-cards span {
-  padding: 3px 11px;
-  border-radius: 999px;
-  background: #eceaf8;
-  font-size: 14px;
-  font-weight: 700;
-}
-@media (max-width: 900px) {
-  .territory-cards {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 @media (max-width: 620px) {
   .explore-main {
     width: min(100% - 32px, 1200px);
@@ -4431,41 +4477,97 @@ button.remember-head {
 }
 
 /* ------------------------------------------------------------------ */
-/* Mapa de mundos (MapaMundos)                                          */
+/* Mapas de islas (mundos y territorios) y migas                        */
 /* ------------------------------------------------------------------ */
 .worlds-main {
   width: min(1200px, calc(100% - 64px));
   margin: 0 auto;
   padding: 32px 0 96px;
 }
-.back-link {
-  display: inline-flex;
+
+/* Migas: botón para volver un nivel y la ruta completa. El nivel actual va en negrita. */
+.migas {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  margin: 0 0 4px -10px;
-  padding: 0 10px;
-  border-radius: 10px;
+  gap: 12px;
+  margin: 0 0 20px;
+}
+.migas-volver {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e3e1f0;
+  border-radius: 50%;
+  background: #fff;
   color: #2e2a78;
-  font-size: 16px;
-  font-weight: 700;
-  transition: background-color 150ms var(--ease-out);
+  transition:
+    background-color 150ms var(--ease-out),
+    transform 160ms var(--ease-out);
+}
+.migas-volver .icon {
+  width: 18px;
+  height: 18px;
 }
 @media (hover: hover) and (pointer: fine) {
-  .back-link:hover {
-    background: #eceaf8;
+  .migas-volver:hover {
+    background: #f1f0fa;
   }
+}
+.migas-volver:active {
+  transform: scale(0.97);
+}
+/* Aguamarina con un trazo índigo por dentro: solo el aguamarina no tiene contraste sobre blanco. */
+.migas-volver:focus-visible {
+  outline: 2px solid #2e2a78;
+  outline-offset: 0;
+  box-shadow: 0 0 0 5px rgba(67, 214, 190, 0.7);
+}
+.migas nav {
+  display: block;
+  margin: 0;
+}
+.migas ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 16px;
+}
+.migas li + li::before {
+  content: "›";
+  content: "›" / "";
+  margin: 0 10px;
+  color: #5d5b7a;
+}
+.migas li a {
+  color: #5d5b7a;
+  font-size: 16px;
+  font-weight: 400;
+}
+.migas li a:hover {
+  color: #2e2a78;
+  text-decoration: underline;
+}
+.migas strong {
+  color: #1a1840;
+  font-weight: 700;
 }
 
 .mundos {
-  --mundo-ink: #f4f3fb;
-  --mundo-soft: #c9c6e3;
+  --mundo-ink: #1a1840;
+  --mundo-soft: #5d5b7a;
   position: relative;
   padding: 28px 32px 16px;
+  border: 1px solid #e3e1f0;
   border-radius: 20px;
   background:
-    radial-gradient(circle, rgba(244, 243, 251, 0.06) 1.4px, transparent 1.8px) 0 0 / 24px 24px,
-    radial-gradient(ellipse at 50% 50%, #1a1840 0%, #2e2a78 100%);
+    radial-gradient(circle, rgba(46, 42, 120, 0.06) 1.4px, transparent 1.8px) 0 0 / 24px 24px,
+    linear-gradient(180deg, #ffffff 0%, #f4f3fb 100%);
+  box-shadow: 0 1px 2px rgba(26, 24, 64, 0.06);
   color: var(--mundo-ink);
 }
 .mundos-cabecera {
@@ -4492,7 +4594,7 @@ button.remember-head {
   flex: none;
   width: 40px;
   height: 40px;
-  color: var(--mundo-ink);
+  color: #2e2a78;
 }
 .mundos-lienzo {
   position: relative;
@@ -4565,9 +4667,6 @@ button.remember-head {
   height: auto;
   overflow: visible;
 }
-.mundo.proximamente .isla {
-  opacity: 0.55;
-}
 .isla-foco {
   opacity: 0;
 }
@@ -4579,7 +4678,7 @@ button.remember-head {
 .mundo-halo {
   position: absolute;
   inset: 38% -22% -46%;
-  background: radial-gradient(closest-side, rgba(67, 214, 190, 0.34), rgba(67, 214, 190, 0) 100%);
+  background: radial-gradient(closest-side, rgba(67, 214, 190, 0.42), rgba(67, 214, 190, 0) 100%);
   opacity: 0.8;
   transition:
     opacity 200ms var(--ease-out),
@@ -4618,12 +4717,12 @@ button.remember-head {
   margin-top: 8px;
 }
 .mundo-nombre {
+  color: var(--mundo-ink);
   font-family: "Bricolage Grotesque", sans-serif;
   font-size: 17px;
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.15;
-  color: var(--mundo-ink);
 }
 .mundo-estado {
   display: inline-flex;
@@ -4650,9 +4749,9 @@ button.remember-head {
   left: 50%;
   padding: 6px 11px;
   border-radius: 8px;
-  background: #f4f3fb;
-  box-shadow: 0 6px 18px rgba(10, 9, 32, 0.4);
-  color: #1a1840;
+  background: #1a1840;
+  box-shadow: 0 6px 18px rgba(26, 24, 64, 0.25);
+  color: #fff;
   font-size: 14px;
   font-weight: 700;
   line-height: 1.2;
@@ -4714,60 +4813,26 @@ button.remember-head {
   animation: none;
 }
 
-/* Versión compacta de /inicio: alto cercano a 320 px. */
-.mundos-compacta {
-  padding: 20px 24px 10px;
-}
-.mundos-compacta .mundos-titulo {
-  font-size: 26px;
-}
-.mundos-compacta .mundos-subtitulo {
-  margin-top: 4px;
-  font-size: 15px;
-}
-.mundos-compacta .mundos-brujula {
-  width: 30px;
-  height: 30px;
-}
-.mundos-compacta .mundos-lienzo {
-  margin: 0 -24px;
-}
-.mundos-compacta .mundo-nombre {
-  font-size: 15px;
-}
-.mundos-compacta .mundo-estado {
-  font-size: 13px;
-}
-.mundos-compacta .mundo-etiqueta {
-  max-width: 150px;
-  margin-top: 6px;
-}
-
-/* Hasta 640 px no hay lienzo: cada mundo es una mini-isla en una cuadrícula de dos columnas. */
+/* Hasta 640 px no hay lienzo: cada isla es una mini-isla en una cuadrícula de dos columnas. */
 @media (max-width: 639px) {
   .worlds-main {
     width: min(100% - 32px, 1200px);
     padding: 24px 0 64px;
   }
-  .mundos,
-  .mundos-compacta {
+  .mundos {
     padding: 22px 16px 24px;
   }
-  .mundos .mundos-titulo,
-  .mundos-compacta .mundos-titulo {
+  .mundos .mundos-titulo {
     font-size: 28px;
   }
-  .mundos .mundos-subtitulo,
-  .mundos-compacta .mundos-subtitulo {
+  .mundos .mundos-subtitulo {
     font-size: 15px;
   }
-  .mundos-brujula,
-  .mundos-compacta .mundos-brujula {
+  .mundos-brujula {
     width: 32px;
     height: 32px;
   }
-  .mundos-lienzo,
-  .mundos-compacta .mundos-lienzo {
+  .mundos-lienzo {
     margin: 22px 0 0;
     aspect-ratio: auto !important;
   }
@@ -4792,17 +4857,11 @@ button.remember-head {
   .mundo-arte {
     width: min(78%, 132px);
   }
-  .mundo-etiqueta,
-  .mundos-compacta .mundo-etiqueta {
+  .mundo-etiqueta {
     max-width: 100%;
   }
-  .mundos .mundo-nombre,
-  .mundos-compacta .mundo-nombre {
+  .mundos .mundo-nombre {
     font-size: 16px;
-  }
-  .mundos .mundo-estado,
-  .mundos-compacta .mundo-estado {
-    font-size: 14px;
   }
   .mundo-tip {
     bottom: calc(100% - 12px);

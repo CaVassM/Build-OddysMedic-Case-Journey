@@ -1,6 +1,6 @@
 // Gráficos de progreso y resultado. Recharts dibuja los ejes y los tooltips; aquí viven los colores con significado:
 // aguamarina = acierto, #C2392F = error, gris = «No sé», índigo = voz del sistema.
-import { useEffect, useState, type Key, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type CSSProperties, type Key, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -696,41 +696,8 @@ function DonutTooltip({
 
 export type TimeItem = { label: string; seconds: number; text: string };
 
-function TimeTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean;
-  payload?: ReadonlyArray<{ payload?: TimeItem }>;
-}) {
-  const item = payload?.[0]?.payload;
-  if (!active || !item) return null;
-  return (
-    <div className="chart-tooltip">
-      <strong>{item.label}</strong>
-      <span>{item.text}</span>
-    </div>
-  );
-}
-
-function TimeTick({ x = 0, y = 0, payload, items }: TickProps & { items: TimeItem[] }) {
-  const item = items.find(({ label }) => label === payload?.value);
-  if (!item) return null;
-  return (
-    <text
-      dominantBaseline="central"
-      fill={colors.ink}
-      fontSize="15"
-      fontWeight="700"
-      textAnchor="start"
-      x={x + 10}
-      y={y}
-    >
-      {item.text}
-    </text>
-  );
-}
-
+// Tiempo por parada en una cuadrícula CSS: [etapa][barra][valor]. La línea punteada marca lo estimado
+// y su etiqueta va encima, en una fila propia, para no tocar ninguna barra.
 export function TimeBars({
   items,
   estimate,
@@ -742,64 +709,43 @@ export function TimeBars({
 }) {
   const motion = useChartAnimation();
   const max = Math.max(estimate * 1.35, ...items.map(({ seconds }) => seconds * 1.25));
+  // Fracción del ancho de la columna de barras que ocupa cada tiempo.
+  const share = (seconds: number) => Math.min(1, seconds / max).toFixed(4);
   return (
-    <figure className="time-bars">
-      <ResponsiveContainer height={items.length * 52 + 30} width="100%">
-        <BarChart
-          accessibilityLayer
-          barCategoryGap={12}
-          data={items}
-          layout="vertical"
-          margin={{ top: 22, right: 0, bottom: 0, left: 0 }}
-        >
-          <XAxis domain={[0, max]} hide type="number" />
-          <YAxis
-            axisLine={false}
-            dataKey="label"
-            orientation="right"
-            tick={<TimeTick items={items} />}
-            tickLine={false}
-            type="category"
-            width={92}
-            yAxisId="time"
+    <figure className={`time-bars${motion ? " animate" : ""}`}>
+      <div
+        aria-hidden="true"
+        className="time-grid"
+        style={{ gridTemplateRows: `30px repeat(${items.length}, 40px)` }}
+      >
+        <span className="time-estimate-cell">
+          <span className="time-estimate-label" style={{ "--p": share(estimate) } as CSSProperties}>
+            {estimateText}
+          </span>
+        </span>
+        {items.map((item, index) => (
+          <Fragment key={item.label}>
+            <span className="time-stage" style={{ gridRow: index + 2 }}>
+              {item.label}
+            </span>
+            <span className="time-track" style={{ gridRow: index + 2 }}>
+              <span
+                className="time-fill"
+                style={{ "--w": share(item.seconds), "--index": index } as CSSProperties}
+              />
+            </span>
+            <span className="time-value" style={{ gridRow: index + 2 }}>
+              {item.text}
+            </span>
+          </Fragment>
+        ))}
+        <span className="time-estimate-span" style={{ gridRow: `2 / span ${items.length}` }}>
+          <span
+            className="time-estimate-line"
+            style={{ "--p": share(estimate) } as CSSProperties}
           />
-          <YAxis
-            axisLine={false}
-            dataKey="label"
-            tick={{ fill: colors.ink, fontSize: 15, fontWeight: 700 }}
-            tickLine={false}
-            type="category"
-            width={104}
-          />
-          <Tooltip
-            content={TimeTooltip}
-            cursor={{ fill: "rgba(46, 42, 120, 0.05)" }}
-            isAnimationActive={false}
-          />
-          <ReferenceLine
-            ifOverflow="visible"
-            label={{
-              value: estimateText,
-              position: "insideTopRight",
-              fill: colors.muted,
-              fontSize: 13,
-            }}
-            stroke={colors.muted}
-            strokeDasharray="4 4"
-            strokeWidth={1.5}
-            x={estimate}
-          />
-          <Bar
-            animationDuration={animationMs}
-            animationEasing="ease-out"
-            barSize={22}
-            dataKey="seconds"
-            fill={colors.system}
-            isAnimationActive={motion}
-            radius={[0, 6, 6, 0]}
-          />
-        </BarChart>
-      </ResponsiveContainer>
+        </span>
+      </div>
       <div className="sr-only">
         <table>
           <caption>Tiempo por parada, frente a {estimateText}</caption>

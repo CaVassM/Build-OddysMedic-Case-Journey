@@ -31,10 +31,17 @@ import {
   type Decision,
   type SystemDecision,
 } from "./history";
-import { MapaMundos } from "./MapaMundos";
-import { OTROS_TERRITORIOS, RUTA_MEDICINA_INTERNA } from "./data/mundos";
+import { Isla, MapaMundos, MapaTerritorios } from "./MapaMundos";
+import {
+  MUNDO_ACTUAL,
+  RUTA_ENDOCRINOLOGIA,
+  RUTA_MEDICINA_INTERNA,
+  RUTA_MUNDOS,
+  TERRITORIO_ACTUAL,
+} from "./data/mundos";
 import { ConfidenceChart, LevelChart, OutcomeDonut, StatRing, TimeBars } from "./charts";
 import {
+  ArrowLeftIcon,
   ArrowRightIcon,
   BookmarkIcon,
   ChevronIcon,
@@ -486,6 +493,41 @@ function RecentCase({ title, patient, portrait, decisions, href, linkLabel }: Re
   );
 }
 
+// Cuántas misiones del catálogo ya tienen decisiones en el historial.
+function completedMissions(history: Decision[]) {
+  return missionCatalog.filter(({ key }) => history.some(({ caseName }) => caseName === key))
+    .length;
+}
+
+// Dónde estás en la jerarquía Mundo → Territorio → Misión, con su avance real.
+function MundoActual({ completadas, total }: { completadas: number; total: number }) {
+  return (
+    <section aria-label="Tu mundo actual" className="mundo-actual">
+      <span className="mundo-actual-isla">
+        <Isla estado={MUNDO_ACTUAL.estado} icono={MUNDO_ACTUAL.icono} />
+      </span>
+      <div className="mundo-actual-body">
+        <p className="mundo-actual-ruta">
+          {MUNDO_ACTUAL.nombre}
+          <span aria-hidden="true"> › </span>
+          <span className="sr-only">, </span>
+          {TERRITORIO_ACTUAL.nombre}
+        </p>
+        <p className="mundo-actual-avance">
+          {completadas} de {total} {total === 1 ? "misión" : "misiones"}
+        </p>
+        <div aria-hidden="true" className="progress-track">
+          <span style={{ width: `${(completadas / total) * 100}%` }} />
+        </div>
+        <a className="mundo-actual-link" href={RUTA_MUNDOS}>
+          Ver mapa
+          <ArrowRightIcon />
+        </a>
+      </div>
+    </section>
+  );
+}
+
 function StudentHome() {
   const answers = readElenaAnswers();
   const plan = readCasePlan();
@@ -523,8 +565,11 @@ function StudentHome() {
       <LoggedTopbar current="inicio" />
       <main className="student-main">
         <div className="home-hero">
-          <h1>Hola, Bruno</h1>
-          <MapaMundos misiones={missionCatalog.length} variante="compacta" />
+          <div className="home-greeting">
+            <h1>Hola, Bruno</h1>
+            <p>Sigue donde lo dejaste.</p>
+          </div>
+          <MundoActual completadas={completedMissions(history)} total={missionCatalog.length} />
         </div>
         <section className="student-left">
           <article className="next-case-card">
@@ -577,7 +622,7 @@ function StudentHome() {
             </div>
           </section>
         </section>
-        <aside className="competencies-card">
+        <aside className="competencies-card card">
           <h2>Tus competencias</h2>
           {homeCompetencies.map((competency) => (
             <Competency competency={competency} key={competency.id} />
@@ -1149,79 +1194,32 @@ function PlayRoute({
   );
 }
 
-type LabRange = { low: number; high: number; position: number; out?: "high" | "low" };
-
-// El intervalo de referencia ocupa este tramo de la barra; lo que queda fuera se dibuja al borde.
-const rangeStart = 28;
-const rangeEnd = 72;
-
-function rangeFromValues(value: number, low: number, high: number): LabRange {
-  const position = rangeStart + ((value - low) / (high - low)) * (rangeEnd - rangeStart);
-  return {
-    low,
-    high,
-    position: Math.round(Math.min(96, Math.max(4, position)) * 10) / 10,
-    out: value > high ? "high" : value < low ? "low" : undefined,
-  };
-}
-
-// Rangos de referencia del banco de casos (EVENTOS_CLINICOS).
-const labRanges: Record<string, LabRange> = {
-  TSH: rangeFromValues(24, 0.4, 4),
-  "T4 libre": rangeFromValues(0.5, 0.8, 1.8),
-  Hemoglobina: rangeFromValues(13, 12, 16),
-};
-
-function RangeBar({ low, high, position, out }: LabRange) {
-  const connector =
-    out === "high"
-      ? { left: `${rangeEnd}%`, width: `${position - rangeEnd}%` }
-      : out === "low"
-        ? { left: `${position}%`, width: `${rangeStart - position}%` }
-        : null;
-  return (
-    <div aria-hidden="true" className="range-bar">
-      <span
-        className="range-band"
-        style={{ left: `${rangeStart}%`, width: `${rangeEnd - rangeStart}%` }}
-      />
-      {connector && <span className="range-connector" style={connector} />}
-      <span className={`range-dot ${out ? "out" : ""}`} style={{ left: `${position}%` }} />
-      <span className="range-limit" style={{ left: `${rangeStart}%` }}>
-        {low}
-      </span>
-      <span className="range-limit" style={{ left: `${rangeEnd}%` }}>
-        {high}
-      </span>
-    </div>
-  );
-}
-
 function KnowledgeRow({
   label,
   value,
   learned = false,
-  range,
 }: {
   label: string;
   value: string;
   learned?: boolean;
-  range?: LabRange;
 }) {
   return (
     <div
-      className={`knowledge-row ${learned ? "learned-row" : ""} ${value.length > 30 ? "stacked" : ""} ${range?.out ? "out-of-range" : ""}`}
+      className={`knowledge-row ${learned ? "learned-row" : ""} ${value.length > 30 ? "stacked" : ""}`}
     >
       <span>{label}</span>
-      <strong>
-        {value}
-        {range && (
-          <span className="sr-only">
-            . Referencia: {range.low} a {range.high}
-          </span>
-        )}
-      </strong>
-      {range && <RangeBar {...range} />}
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+// Laboratorio: solo el dato crudo y su referencia. Decir si está alto o bajo es trabajo del alumno.
+function LabRow({ name, value, reference }: { name: string; value: string; reference: string }) {
+  return (
+    <div className="lab-row">
+      <span className="lab-name">{name}</span>
+      <strong className="lab-value">{value}</strong>
+      <span className="lab-reference">Referencia: {reference}</span>
     </div>
   );
 }
@@ -1259,10 +1257,11 @@ function ElenaKnowledge({ stop, variantId }: { stop: number; variantId: VariantI
           ],
         }
       : {}),
+    // Nombre, valor con unidad y referencia del banco de casos (EVENTOS_CLINICOS).
     Laboratorio: [
-      ["TSH", "24 mUI/L, alta"],
-      ["T4 libre", "0.5 ng/dL, baja"],
-      ...(guided ? [["Hemoglobina", "13 g/dL"]] : []),
+      ["TSH", "24 mUI/L", "0.4–4 mUI/L"],
+      ["T4 libre", "0.5 ng/dL", "0.8–1.8 ng/dL"],
+      ...(guided ? [["Hemoglobina", "13 g/dL", "12–16 g/dL"]] : []),
     ],
   };
   const tabNames = Object.keys(details);
@@ -1306,7 +1305,7 @@ function ElenaKnowledge({ stop, variantId }: { stop: number; variantId: VariantI
   ];
 
   return (
-    <aside className="knowledge-panel">
+    <aside className="knowledge-panel card">
       <h2>Lo que sabes de Elena</h2>
       <div
         aria-label="Información del caso"
@@ -1348,14 +1347,13 @@ function ElenaKnowledge({ stop, variantId }: { stop: number; variantId: VariantI
         role="tabpanel"
         tabIndex={0}
       >
-        {details[tab].map(([label, value]) => (
-          <KnowledgeRow
-            key={label}
-            label={label}
-            range={tab === "Laboratorio" ? labRanges[label] : undefined}
-            value={value}
-          />
-        ))}
+        {details[tab].map(([label, value, reference]) =>
+          tab === "Laboratorio" ? (
+            <LabRow key={label} name={label} reference={reference} value={value} />
+          ) : (
+            <KnowledgeRow key={label} label={label} value={value} />
+          ),
+        )}
         {growingDetails.map(([label, value]) => (
           <KnowledgeRow key={label} label={label} learned value={value} />
         ))}
@@ -1495,7 +1493,7 @@ function ElenaCasePlay({ plan }: { plan: CasePlan }) {
           timer={<PlayTimer running={!(answered && stop === elenaStops.length - 1)} />}
         />
         <div className="play-grid">
-          <section className="question-area" onKeyDown={handleShortcuts}>
+          <section className="question-area card" onKeyDown={handleShortcuts}>
             <h1 id="question-title" ref={headingRef} tabIndex={-1}>
               {data.question}
             </h1>
@@ -1815,7 +1813,8 @@ function CompletedRoute({ answers }: { answers: SavedAnswer[] }) {
   );
 }
 
-// Antes → después en una competencia. Sin 2 respuestas no hay nivel que comparar.
+// Antes → después en una competencia, en columnas fijas que se alinean entre filas.
+// Sin 2 respuestas no hay nivel que comparar: el texto ocupa de «antes» a «delta».
 function LevelChange({ before, after }: { before: CompetencyState; after: CompetencyState }) {
   const beforeInfo = describeCompetency(before);
   const afterInfo = describeCompetency(after);
@@ -1825,12 +1824,10 @@ function LevelChange({ before, after }: { before: CompetencyState; after: Compet
   const sign = diff > 0 ? "+" : diff < 0 ? "−" : "";
   return (
     <li className="level-change">
-      <p className="level-change-name">
-        <CompetencyIcon id={after.id} />
-        {after.name}
-      </p>
+      <CompetencyIcon id={after.id} />
+      <p className="level-change-name">{after.name}</p>
       {afterInfo.hasEvidence ? (
-        <p className="level-change-values">
+        <>
           <span className="before">
             {beforeInfo.hasEvidence ? `${beforePercent} %` : "—"}
             <span className="sr-only">Antes</span>
@@ -1839,16 +1836,18 @@ function LevelChange({ before, after }: { before: CompetencyState; after: Compet
           <strong className="after">
             {afterPercent} %<span className="sr-only">Después</span>
           </strong>
-          {beforeInfo.hasEvidence && (
+          {beforeInfo.hasEvidence ? (
             <span className={`diff ${diff > 0 ? "up" : diff < 0 ? "down" : "same"}`}>
               {diff === 0
                 ? "sin cambio"
                 : `${sign}${Math.abs(diff)} ${Math.abs(diff) === 1 ? "punto" : "puntos"}`}
             </span>
+          ) : (
+            <span />
           )}
-        </p>
+        </>
       ) : (
-        <p className="level-change-values pending">
+        <p className="level-change-pending">
           Aún sin evidencia suficiente: {after.n} de 2 respuestas
         </p>
       )}
@@ -1907,13 +1906,13 @@ function ElenaCaseResult() {
           <CaseClosedStamp />
         </header>
         <div className="result-grid">
-          <div>
+          <div className="result-stack">
             <div className="result-overview">
-              <section className="result-outcome">
+              <section className="result-outcome card">
                 <h2>Cómo te fue</h2>
                 <OutcomeDonut correct={correctCount} noIdea={noIdeaCount} wrong={wrongCount} />
               </section>
-              <section className="result-time">
+              <section className="result-time card">
                 <h2>Tiempo</h2>
                 <p className="time-total">
                   <strong>{formatDuration(totalSeconds)}</strong>
@@ -1930,7 +1929,7 @@ function ElenaCaseResult() {
                 />
               </section>
             </div>
-            <section className="result-competencies">
+            <section className="result-competencies card">
               <h2>Tus competencias</h2>
               <ul className="level-change-list">
                 {elenaStops.map((stop) => (
@@ -1942,7 +1941,7 @@ function ElenaCaseResult() {
                 ))}
               </ul>
             </section>
-            <section className="stops-summary-card">
+            <section className="stops-summary-card card">
               <h2>Qué pasó en cada parada</h2>
               {elenaStops.map((item, index) => {
                 const answer = answers[index];
@@ -2781,8 +2780,6 @@ const neutralReasons: Record<string, string> = {
   Elena: "Aún no tenemos evidencia de cómo interpretas resultados de pruebas.",
 };
 
-const otherTerritories = OTROS_TERRITORIOS;
-
 function MissionCard({
   mission,
   state,
@@ -2878,7 +2875,41 @@ function MissionCard({
   );
 }
 
-function ExplorePage() {
+type Nivel = { nombre: string; href?: string };
+
+// Dónde estás en Mundo → Territorio → Misión. Un solo componente para todos los niveles:
+// el botón vuelve al nivel anterior y la ruta enlaza los anteriores; el actual va en negrita.
+function Migas({ niveles }: { niveles: Nivel[] }) {
+  const anterior = niveles[niveles.length - 2];
+  return (
+    <div className="migas">
+      {anterior?.href && (
+        <a aria-label={`Volver a ${anterior.nombre}`} className="migas-volver" href={anterior.href}>
+          <ArrowLeftIcon />
+        </a>
+      )}
+      <nav aria-label="Ruta de navegación">
+        <ol>
+          {niveles.map((nivel, index) => (
+            <li key={nivel.nombre}>
+              {index === niveles.length - 1 || !nivel.href ? (
+                <strong aria-current="page">{nivel.nombre}</strong>
+              ) : (
+                <a href={nivel.href}>{nivel.nombre}</a>
+              )}
+            </li>
+          ))}
+        </ol>
+      </nav>
+    </div>
+  );
+}
+
+const nivelMundos: Nivel = { nombre: "Mundos", href: RUTA_MUNDOS };
+const nivelMedicinaInterna: Nivel = { nombre: MUNDO_ACTUAL.nombre, href: RUTA_MEDICINA_INTERNA };
+
+// Tercer nivel: las misiones de un territorio.
+function MissionsPage() {
   const answers = readElenaAnswers();
   const plan = readCasePlan();
   const competencies = competenciesAfterElena(answers, plan);
@@ -2906,11 +2937,9 @@ function ExplorePage() {
     <div className="student-page">
       <LoggedTopbar current="explorar" />
       <main className="explore-main">
-        <a className="back-link" href="/explorar">
-          <span aria-hidden="true">←</span> Medicina Interna
-          <span className="sr-only">: volver a Tus mundos</span>
-        </a>
-        <p className="breadcrumb">Medicina Interna / Endocrinología</p>
+        <Migas
+          niveles={[nivelMundos, nivelMedicinaInterna, { nombre: TERRITORIO_ACTUAL.nombre }]}
+        />
         <header className="explore-head">
           <h1>Endocrinología</h1>
           <p>
@@ -2933,30 +2962,33 @@ function ExplorePage() {
             ))}
           </ul>
         </section>
-        <section aria-labelledby="territories-title" className="explore-territories">
-          <h2 id="territories-title">Otros territorios</h2>
-          <ul className="territory-cards">
-            {otherTerritories.map((name) => (
-              <li key={name}>
-                <strong>{name}</strong>
-                <span>Muy pronto</span>
-              </li>
-            ))}
-          </ul>
-        </section>
         <DevDataToggle />
       </main>
     </div>
   );
 }
 
-// El mapa de mundos es el primer nivel de Explorar; cada mundo abre sus territorios y sus misiones.
+// Primer nivel de Explorar: el mapa de mundos. No hay nivel anterior, así que no lleva migas.
 function WorldsPage() {
   return (
     <div className="student-page">
       <LoggedTopbar current="explorar" />
       <main className="worlds-main">
-        <MapaMundos misiones={missionCatalog.length} variante="completa" />
+        <MapaMundos misiones={missionCatalog.length} />
+        <DevDataToggle />
+      </main>
+    </div>
+  );
+}
+
+// Segundo nivel: los territorios de un mundo.
+function TerritoriesPage() {
+  return (
+    <div className="student-page">
+      <LoggedTopbar current="explorar" />
+      <main className="worlds-main">
+        <Migas niveles={[nivelMundos, { nombre: MUNDO_ACTUAL.nombre }]} />
+        <MapaTerritorios misiones={missionCatalog.length} />
         <DevDataToggle />
       </main>
     </div>
@@ -2974,6 +3006,7 @@ const routeTitles: Record<string, string> = {
   "/inicio": "Inicio · OddysMedic",
   "/explorar": "Tus mundos · OddysMedic",
   [RUTA_MEDICINA_INTERNA]: "Medicina Interna · OddysMedic",
+  [RUTA_ENDOCRINOLOGIA]: "Endocrinología · OddysMedic",
   "/progreso": "Tu progreso · OddysMedic",
   "/caso/elena": "Consulta por cansancio · OddysMedic",
   "/caso/elena/jugar": "Caso en curso: Consulta por cansancio · OddysMedic",
@@ -2994,7 +3027,11 @@ export default function App() {
   }
 
   if (window.location.pathname === RUTA_MEDICINA_INTERNA) {
-    return <ExplorePage />;
+    return <TerritoriesPage />;
+  }
+
+  if (window.location.pathname === RUTA_ENDOCRINOLOGIA) {
+    return <MissionsPage />;
   }
 
   if (window.location.pathname === "/progreso") {

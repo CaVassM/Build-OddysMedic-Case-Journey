@@ -1,47 +1,27 @@
-// Mapa de mundos: una isla isométrica por especialidad. Solo Medicina Interna se puede abrir.
-// Los nombres son públicos: aquí nunca aparece un tema ni un diagnóstico.
+// Mapas de islas isométricas: una isla por mundo (especialidad) o por territorio.
+// Solo la isla disponible se puede abrir. Los nombres son públicos: nunca un tema ni un diagnóstico.
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import {
   MUNDOS,
-  RUTA_MEDICINA_INTERNA,
+  TERRITORIOS,
   TOTAL_TERRITORIOS,
-  type Mundo,
-  type MundoIcono,
-  type MundoId,
+  type IslaDato,
+  type IslaIcono,
 } from "./data/mundos";
 import { CompassMark, heartbeatPath } from "./icons";
 
-type Variante = "completa" | "compacta";
-
-// Cada variante tiene su propio lienzo. El SVG de las rutas usa estas medidas como viewBox, y el
-// lienzo HTML tiene la misma proporción, así que un % de las islas es el mismo punto que en las rutas.
-const LIENZO: Record<Variante, { w: number; h: number }> = {
-  completa: { w: 1000, h: 440 },
-  compacta: { w: 1000, h: 305 },
-};
-
-type Ruta = { de: MundoId; a: MundoId; latido?: boolean };
-
-// El latido va en el tramo que sale de Medicina Interna hacia el mundo de la derecha.
-const RUTAS: Record<Variante, Ruta[]> = {
-  completa: [
-    { de: "medicina-interna", a: "pediatria" },
-    { de: "medicina-interna", a: "gineco-obstetricia", latido: true },
-    { de: "medicina-interna", a: "emergencias" },
-  ],
-  // En el lienzo ancho las islas quedan en fila: la ruta pasa de una a la siguiente.
-  compacta: [
-    { de: "medicina-interna", a: "pediatria" },
-    { de: "medicina-interna", a: "gineco-obstetricia", latido: true },
-    { de: "gineco-obstetricia", a: "emergencias" },
-  ],
-};
-
-// Medidas del dibujo de la isla (viewBox 200 × 130) frente a su ancho.
-const ISLA_PROPORCION = 130 / 200;
-const CARA_CENTRO = 53 / 200; // del borde superior al centro de la cara superior, en anchos de isla
+// El SVG de las rutas usa estas medidas como viewBox, y el lienzo HTML tiene la misma proporción,
+// así que un % de las islas es el mismo punto que en las rutas.
+const LIENZO = { w: 1000, h: 440 };
 const TEXTO_TIP = "Disponible pronto";
 const DURACION_TIP = 2200;
+
+// Rutas: desde la isla disponible hacia las demás. El latido va en el tramo que sale hacia la segunda.
+function rutasDe(islas: IslaDato[]) {
+  return islas
+    .slice(1)
+    .map((isla, index) => ({ de: islas[0].id, a: isla.id, latido: index === 1 }));
+}
 
 const tonos = {
   disponible: {
@@ -52,25 +32,22 @@ const tonos = {
     icono: "#1A1840",
   },
   proximamente: {
-    arriba: "#46409A",
-    izquierda: "#3A3588",
-    derecha: "#322E7D",
-    placa: "#524CA8",
-    icono: "#DAD8F1",
+    arriba: "#C9C6EA",
+    izquierda: "#A9A5DB",
+    derecha: "#9C97D2",
+    placa: "#DAD8F2",
+    icono: "#6B66B3",
   },
 };
 
 type Punto = { x: number; y: number };
 
-function centroDe(m: Mundo, v: Variante): Punto {
-  const { w, h } = LIENZO[v];
-  const pos = v === "compacta" ? m.posCompacta : m.pos;
-  return { x: (pos.x / 100) * w, y: (pos.y / 100) * h };
+function centroDe(isla: IslaDato): Punto {
+  return { x: (isla.pos.x / 100) * LIENZO.w, y: (isla.pos.y / 100) * LIENZO.h };
 }
 
-function anchoDe(m: Mundo, v: Variante) {
-  const { w } = LIENZO[v];
-  return ((v === "compacta" ? m.anchoCompacto : m.ancho) / 100) * w;
+function anchoDe(isla: IslaDato) {
+  return (isla.ancho / 100) * LIENZO.w;
 }
 
 // Distancia del centro al borde del rombo en la dirección (ux, uy). Hacia abajo cuentan también las caras laterales.
@@ -83,25 +60,24 @@ function distanciaAlBorde(ancho: number, ux: number, uy: number) {
 type RutaCalculada = {
   clave: string;
   d: string;
-  largo: number;
   latido?: { x: number; y: number; angulo: number; escala: number };
 };
 
-function calcularRutas(v: Variante): RutaCalculada[] {
-  const porId = new Map(MUNDOS.map((m) => [m.id, m]));
+function calcularRutas(islas: IslaDato[]): RutaCalculada[] {
+  const porId = new Map(islas.map((isla) => [isla.id, isla]));
   const huecoExtra = 7;
   const calculadas: RutaCalculada[] = [];
-  RUTAS[v].forEach((ruta, i) => {
-    const mA = porId.get(ruta.de);
-    const mB = porId.get(ruta.a);
-    if (!mA || !mB) return;
-    const A = centroDe(mA, v);
-    const B = centroDe(mB, v);
+  rutasDe(islas).forEach((ruta, i) => {
+    const iA = porId.get(ruta.de);
+    const iB = porId.get(ruta.a);
+    if (!iA || !iB) return;
+    const A = centroDe(iA);
+    const B = centroDe(iB);
     const largoTotal = Math.hypot(B.x - A.x, B.y - A.y);
     const ux = (B.x - A.x) / largoTotal;
     const uy = (B.y - A.y) / largoTotal;
-    const tA = distanciaAlBorde(anchoDe(mA, v), ux, uy) + huecoExtra;
-    const tB = distanciaAlBorde(anchoDe(mB, v), -ux, -uy) + huecoExtra;
+    const tA = distanciaAlBorde(anchoDe(iA), ux, uy) + huecoExtra;
+    const tB = distanciaAlBorde(anchoDe(iB), -ux, -uy) + huecoExtra;
     const s = { x: A.x + ux * tA, y: A.y + uy * tA };
     const e = { x: B.x - ux * tB, y: B.y - uy * tB };
     const largo = Math.hypot(e.x - s.x, e.y - s.y);
@@ -122,7 +98,7 @@ function calcularRutas(v: Variante): RutaCalculada[] {
         escala: Math.min(0.95, Math.max(0.5, (largo * 0.55) / 80)),
       };
     }
-    calculadas.push({ clave: `${ruta.de}-${ruta.a}`, d, largo, latido });
+    calculadas.push({ clave: `${ruta.de}-${ruta.a}`, d, latido });
   });
   return calculadas;
 }
@@ -131,7 +107,17 @@ function calcularRutas(v: Variante): RutaCalculada[] {
 // Íconos planos y simbólicos, dibujados en una caja de 48. `c` es el color del ícono y `k` el de
 // los huecos, que es el de la placa sobre la que se apoya.
 // ---------------------------------------------------------------------------------------------
-function IconoMundo({ icono, c, k }: { icono: MundoIcono; c: string; k: string }) {
+const puas = [0, 45, 90, 135, 180, 225, 270, 315].map((grados) => {
+  const radianes = (grados * Math.PI) / 180;
+  return {
+    x1: 24 + Math.cos(radianes) * 11,
+    y1: 24 + Math.sin(radianes) * 11,
+    x2: 24 + Math.cos(radianes) * 17,
+    y2: 24 + Math.sin(radianes) * 17,
+  };
+});
+
+function IconoIsla({ icono, c, k }: { icono: IslaIcono; c: string; k: string }) {
   switch (icono) {
     case "estetoscopio":
       return (
@@ -193,10 +179,76 @@ function IconoMundo({ icono, c, k }: { icono: MundoIcono; c: string; k: string }
           />
         </g>
       );
+    case "tiroides": {
+      // Dos lóbulos unidos por un istmo: la tiroides tiene forma de mariposa.
+      const lobulo = "M22.5 41C15 42 8.5 37 7.5 29C6.5 22 8.5 15 12 8C18 11 22.5 18 22.5 27Z";
+      return (
+        <g>
+          <path d={lobulo} fill={c} />
+          <path d={lobulo} fill={c} transform="matrix(-1 0 0 1 48 0)" />
+          <rect x="20" y="27" width="8" height="6.5" rx="2" fill={c} />
+        </g>
+      );
+    }
+    case "corazon":
+      return (
+        <g>
+          <path
+            d="M24 42C11 33 5 25.5 5 17.5C5 11 9.5 6.5 15.5 6.5C19.2 6.5 22.2 8.4 24 11.6C25.8 8.4 28.8 6.5 32.5 6.5C38.5 6.5 43 11 43 17.5C43 25.5 37 33 24 42Z"
+            fill={c}
+          />
+          <path
+            d="M13 16.5C13.4 13.8 15.2 12.3 17.4 12.1"
+            fill="none"
+            stroke={k}
+            strokeLinecap="round"
+            strokeWidth="2.4"
+          />
+        </g>
+      );
+    case "microbio":
+      return (
+        <g>
+          {puas.map((pua) => (
+            <g key={`${pua.x2}-${pua.y2}`}>
+              <line
+                stroke={c}
+                strokeLinecap="round"
+                strokeWidth="3"
+                x1={pua.x1}
+                x2={pua.x2}
+                y1={pua.y1}
+                y2={pua.y2}
+              />
+              <circle cx={pua.x2} cy={pua.y2} r="2.7" fill={c} />
+            </g>
+          ))}
+          <circle cx="24" cy="24" r="12.5" fill={c} />
+          <circle cx="20.5" cy="21" r="2.6" fill={k} />
+          <circle cx="28.5" cy="27.5" r="2" fill={k} />
+        </g>
+      );
+    case "rinon":
+      return (
+        <g>
+          <path
+            d="M28 4.5C38 5 44 13.5 43 25C42 37.5 34 44 26 43C19.5 42 17.5 36.5 20.5 32.5C23.5 28.5 23.5 24.5 20.5 20.5C17.5 16.5 19 10 24 7C25.2 5.5 26.4 4.4 28 4.5Z"
+            fill={c}
+          />
+          <path
+            d="M34 12.5C37.5 15.5 38.5 20 38 24.5"
+            fill="none"
+            stroke={k}
+            strokeLinecap="round"
+            strokeWidth="2.4"
+          />
+        </g>
+      );
   }
 }
 
-function Isla({ estado, icono }: { estado: Mundo["estado"]; icono: MundoIcono }) {
+// El dibujo de una isla. Se exporta para la tarjeta «Mundo actual» de /inicio.
+export function Isla({ estado, icono }: { estado: IslaDato["estado"]; icono: IslaIcono }) {
   const t = tonos[estado];
   return (
     <svg className="isla" viewBox="0 0 200 130" fill="none" aria-hidden="true" focusable="false">
@@ -224,17 +276,17 @@ function Isla({ estado, icono }: { estado: Mundo["estado"]; icono: MundoIcono })
       />
       {/* Placa sobre la que se apoya el ícono. */}
       <path d="M100 21 164 53 100 85 36 53Z" fill={t.placa} />
-      <ellipse cx="100" cy="59" rx="19" ry="5.5" fill="#1A1840" opacity="0.22" />
+      <ellipse cx="100" cy="59" rx="19" ry="5.5" fill="#1A1840" opacity="0.16" />
       <g transform="translate(78 16.5) scale(0.92)">
-        <IconoMundo c={t.icono} icono={icono} k={t.placa} />
+        <IconoIsla c={t.icono} icono={icono} k={t.placa} />
       </g>
       {/* Contorno del foco de teclado: sigue la silueta de la isla. */}
       <path
         className="isla-foco"
         d="M1 52.5 100 2l99 50.5v26.5L100 128 1 79Z"
-        stroke="#FFFFFF"
+        stroke="#2E2A78"
         strokeLinejoin="round"
-        strokeWidth="3"
+        strokeWidth="3.2"
       />
     </svg>
   );
@@ -254,33 +306,28 @@ function Candado() {
   );
 }
 
-function resumenTerritorios(misiones: number) {
-  const territorios = `${TOTAL_TERRITORIOS} ${TOTAL_TERRITORIOS === 1 ? "territorio" : "territorios"}`;
-  return `${territorios} · ${misiones} ${misiones === 1 ? "misión" : "misiones"}`;
+function plural(n: number, uno: string, varios: string) {
+  return `${n} ${n === 1 ? uno : varios}`;
 }
 
-function MundoIsla({
-  mundo,
-  variante,
-  misiones,
+function IslaMapa({
+  isla,
+  detalle,
   tipVisible,
   onTip,
 }: {
-  mundo: Mundo;
-  variante: Variante;
-  misiones: number;
+  isla: IslaDato;
+  detalle: string;
   tipVisible: boolean;
-  onTip: (id: MundoId | null, esperar?: boolean) => void;
+  onTip: (id: string | null, esperar?: boolean) => void;
 }) {
-  const disponible = mundo.estado === "disponible";
-  const pos = variante === "compacta" ? mundo.posCompacta : mundo.pos;
-  const ancho = variante === "compacta" ? mundo.anchoCompacto : mundo.ancho;
+  const disponible = isla.estado === "disponible";
   const tipId = useId();
   const estilo = {
-    "--x": pos.x,
-    "--y": pos.y,
-    "--ancho": ancho,
-    "--retraso": `${mundo.entrada}ms`,
+    "--x": isla.pos.x,
+    "--y": isla.pos.y,
+    "--ancho": isla.ancho,
+    "--retraso": `${isla.entrada}ms`,
     "--sube": disponible ? "8px" : "6px",
   } as CSSProperties;
 
@@ -295,18 +342,18 @@ function MundoIsla({
         className="mundo-boton"
         onBlur={disponible ? undefined : () => onTip(null)}
         onClick={() => {
-          if (disponible) {
-            window.location.assign(RUTA_MEDICINA_INTERNA);
-          } else {
-            onTip(mundo.id, true);
+          if (disponible && isla.ruta) {
+            window.location.assign(isla.ruta);
+          } else if (!disponible) {
+            onTip(isla.id, true);
           }
         }}
-        onFocus={disponible ? undefined : () => onTip(mundo.id)}
+        onFocus={disponible ? undefined : () => onTip(isla.id)}
         onKeyDown={(evento) => {
           if (!disponible && evento.key === "Escape") onTip(null);
         }}
         onPointerEnter={
-          disponible ? undefined : (evento) => evento.pointerType === "mouse" && onTip(mundo.id)
+          disponible ? undefined : (evento) => evento.pointerType === "mouse" && onTip(isla.id)
         }
         onPointerLeave={
           disponible ? undefined : (evento) => evento.pointerType === "mouse" && onTip(null)
@@ -317,15 +364,15 @@ function MundoIsla({
           {disponible && <span className="mundo-halo" />}
           <span className="mundo-sube">
             <span className="mundo-flota">
-              <Isla estado={mundo.estado} icono={mundo.icono} />
+              <Isla estado={isla.estado} icono={isla.icono} />
             </span>
           </span>
         </span>
         <span className="mundo-etiqueta">
-          <span className="mundo-nombre">{mundo.nombre}</span>
+          <span className="mundo-nombre">{isla.nombre}</span>
           <span className="mundo-estado">
             {disponible ? (
-              resumenTerritorios(misiones)
+              detalle
             ) : (
               <>
                 <Candado />
@@ -344,27 +391,29 @@ function MundoIsla({
   );
 }
 
-export function MapaMundos({
-  variante = "completa",
-  misiones,
+function MapaIslas({
+  titulo,
+  subtitulo,
+  islas,
+  detalle,
 }: {
-  variante?: Variante;
-  // Cuántas misiones hay hoy en el catálogo; se cuenta fuera, donde viven los datos de los casos.
-  misiones: number;
+  titulo: string;
+  subtitulo: string;
+  islas: IslaDato[];
+  detalle: string;
 }) {
-  const titulo = useId();
+  const tituloId = useId();
   const mascara = useId().replace(/[^a-zA-Z0-9_-]/g, "");
-  const [tip, setTip] = useState<MundoId | null>(null);
+  const [tip, setTip] = useState<string | null>(null);
   const temporizador = useRef<number | undefined>(undefined);
   // Si la pestaña está oculta al montarse, el movimiento ya habría pasado cuando se vea: estado final.
   const [sinEntrada] = useState(() => typeof document !== "undefined" && document.hidden);
-  const { w, h } = LIENZO[variante];
-  const rutas = calcularRutas(variante);
-  const Titulo = variante === "completa" ? "h1" : "h2";
+  const { w, h } = LIENZO;
+  const rutas = calcularRutas(islas);
 
   useEffect(() => () => window.clearTimeout(temporizador.current), []);
 
-  function mostrarTip(id: MundoId | null, esperar = false) {
+  function mostrarTip(id: string | null, esperar = false) {
     window.clearTimeout(temporizador.current);
     setTip(id);
     // En pantallas táctiles no hay «salir con el puntero»: el aviso se retira solo.
@@ -372,16 +421,13 @@ export function MapaMundos({
   }
 
   return (
-    <section
-      aria-labelledby={titulo}
-      className={`mundos mundos-${variante}${sinEntrada ? " sin-entrada" : ""}`}
-    >
+    <section aria-labelledby={tituloId} className={`mundos${sinEntrada ? " sin-entrada" : ""}`}>
       <header className="mundos-cabecera">
         <div>
-          <Titulo className="mundos-titulo" id={titulo}>
-            Tus mundos
-          </Titulo>
-          <p className="mundos-subtitulo">Explora especialidades y avanza por sus territorios.</p>
+          <h1 className="mundos-titulo" id={tituloId}>
+            {titulo}
+          </h1>
+          <p className="mundos-subtitulo">{subtitulo}</p>
         </div>
         <CompassMark className="mundos-brujula" />
       </header>
@@ -420,9 +466,8 @@ export function MapaMundos({
                 <path
                   d={ruta.d}
                   mask={`url(#${id})`}
-                  stroke="#43D6BE"
+                  stroke="#2FC7AF"
                   strokeDasharray="4 6"
-                  strokeOpacity="0.8"
                   strokeWidth="2.5"
                 />
                 {ruta.latido && (
@@ -433,7 +478,7 @@ export function MapaMundos({
                       className="ruta-latido"
                       d={heartbeatPath}
                       pathLength="1"
-                      stroke="#43D6BE"
+                      stroke="#2FC7AF"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={(2.6 / ruta.latido.escala).toFixed(2)}
@@ -445,18 +490,41 @@ export function MapaMundos({
           })}
         </svg>
         <ul className="mundos-lista">
-          {MUNDOS.map((mundo) => (
-            <MundoIsla
-              key={mundo.id}
-              misiones={misiones}
-              mundo={mundo}
+          {islas.map((isla) => (
+            <IslaMapa
+              detalle={detalle}
+              isla={isla}
+              key={isla.id}
               onTip={mostrarTip}
-              tipVisible={tip === mundo.id}
-              variante={variante}
+              tipVisible={tip === isla.id}
             />
           ))}
         </ul>
       </div>
     </section>
+  );
+}
+
+// Primer nivel: los mundos. `misiones` se cuenta fuera, donde viven los datos de los casos.
+export function MapaMundos({ misiones }: { misiones: number }) {
+  return (
+    <MapaIslas
+      detalle={`${plural(TOTAL_TERRITORIOS, "territorio", "territorios")} · ${plural(misiones, "misión", "misiones")}`}
+      islas={MUNDOS}
+      subtitulo="Explora especialidades y avanza por sus territorios."
+      titulo="Tus mundos"
+    />
+  );
+}
+
+// Segundo nivel: los territorios de Medicina Interna.
+export function MapaTerritorios({ misiones }: { misiones: number }) {
+  return (
+    <MapaIslas
+      detalle={plural(misiones, "misión", "misiones")}
+      islas={TERRITORIOS}
+      subtitulo="Elige un territorio para practicar sus casos."
+      titulo="Medicina Interna"
+    />
   );
 }
