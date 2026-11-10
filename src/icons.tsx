@@ -2,6 +2,22 @@
 import type { ReactNode } from "react";
 import type { CompetencyId } from "./engine";
 
+// La brújula del logo, sola. Toma el color del texto (currentColor); los acentos siguen siendo aguamarina.
+export function CompassMark({ className = "brand-mark" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 38 38" aria-hidden="true" focusable="false">
+      <circle cx="19" cy="19" r="16.5" fill="none" stroke="currentColor" strokeWidth="2.2" />
+      <path d="M19 7.5 24 21l-5 9.5L14 21l5-13.5Z" fill="currentColor" />
+      <path d="m19 7.5 5 13.5-5-2.9V7.5Z" fill="#43D6BE" />
+      <path d="M16.2 16.2h5.6v5.6h-5.6z" fill="#43D6BE" />
+      <path d="M19 14.5v9M14.5 19h9" stroke="#1A1840" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+// Una sola onda de ECG: línea base, P, QRS, T y vuelta a la base.
+export const heartbeatPath = "M0 16H20q4 -6 8 0H34l3 4 5 -20 5 24 4 -8H60q5 -8 10 0H80";
+
 function Icon({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <svg

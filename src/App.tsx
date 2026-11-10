@@ -31,6 +31,8 @@ import {
   type Decision,
   type SystemDecision,
 } from "./history";
+import { MapaMundos } from "./MapaMundos";
+import { OTROS_TERRITORIOS, RUTA_MEDICINA_INTERNA } from "./data/mundos";
 import { ConfidenceChart, LevelChart, OutcomeDonut, StatRing, TimeBars } from "./charts";
 import {
   ArrowRightIcon,
@@ -38,10 +40,12 @@ import {
   ChevronIcon,
   ClockIcon,
   CompassIcon,
+  CompassMark,
   CheckIcon,
   CompetencyIcon,
   EyeIcon,
   FlaskIcon,
+  heartbeatPath,
   InfoIcon,
   RouteIcon,
   TrendIcon,
@@ -92,13 +96,7 @@ type StopState = "done" | "current" | "pending";
 function CompassLogo() {
   return (
     <div className="brand-lockup">
-      <svg className="brand-mark" viewBox="0 0 38 38" aria-hidden="true">
-        <circle cx="19" cy="19" r="16.5" fill="none" stroke="currentColor" strokeWidth="2.2" />
-        <path d="M19 7.5 24 21l-5 9.5L14 21l5-13.5Z" fill="currentColor" />
-        <path d="m19 7.5 5 13.5-5-2.9V7.5Z" fill="#43D6BE" />
-        <path d="M16.2 16.2h5.6v5.6h-5.6z" fill="#43D6BE" />
-        <path d="M19 14.5v9M14.5 19h9" stroke="#1A1840" strokeWidth="1.4" />
-      </svg>
+      <CompassMark />
       <span>OddysMedic</span>
     </div>
   );
@@ -112,8 +110,7 @@ function Portrait({ patient, className = "" }: { patient: PortraitName; classNam
   );
 }
 
-// Una sola onda de ECG: línea base, P, QRS, T y vuelta a la base. Se dibuja una vez al montarse.
-const heartbeatPath = "M0 16H20q4 -6 8 0H34l3 4 5 -20 5 24 4 -8H60q5 -8 10 0H80";
+// La onda de ECG (heartbeatPath) se dibuja una vez al montarse.
 
 function Heartbeat() {
   return (
@@ -525,8 +522,11 @@ function StudentHome() {
     <div className="student-page">
       <LoggedTopbar current="inicio" />
       <main className="student-main">
-        <section className="student-left">
+        <div className="home-hero">
           <h1>Hola, Bruno</h1>
+          <MapaMundos misiones={missionCatalog.length} variante="compacta" />
+        </div>
+        <section className="student-left">
           <article className="next-case-card">
             <div className="next-case-orbit orbit-one" />
             <div className="next-case-orbit orbit-two" />
@@ -2781,7 +2781,7 @@ const neutralReasons: Record<string, string> = {
   Elena: "Aún no tenemos evidencia de cómo interpretas resultados de pruebas.",
 };
 
-const otherTerritories = ["Cardiología", "Infectología", "Nefrología"];
+const otherTerritories = OTROS_TERRITORIOS;
 
 function MissionCard({
   mission,
@@ -2906,6 +2906,10 @@ function ExplorePage() {
     <div className="student-page">
       <LoggedTopbar current="explorar" />
       <main className="explore-main">
+        <a className="back-link" href="/explorar">
+          <span aria-hidden="true">←</span> Medicina Interna
+          <span className="sr-only">: volver a Tus mundos</span>
+        </a>
         <p className="breadcrumb">Medicina Interna / Endocrinología</p>
         <header className="explore-head">
           <h1>Endocrinología</h1>
@@ -2946,6 +2950,19 @@ function ExplorePage() {
   );
 }
 
+// El mapa de mundos es el primer nivel de Explorar; cada mundo abre sus territorios y sus misiones.
+function WorldsPage() {
+  return (
+    <div className="student-page">
+      <LoggedTopbar current="explorar" />
+      <main className="worlds-main">
+        <MapaMundos misiones={missionCatalog.length} variante="completa" />
+        <DevDataToggle />
+      </main>
+    </div>
+  );
+}
+
 function Redirect({ to }: { to: string }) {
   useEffect(() => {
     window.location.replace(to);
@@ -2955,7 +2972,8 @@ function Redirect({ to }: { to: string }) {
 
 const routeTitles: Record<string, string> = {
   "/inicio": "Inicio · OddysMedic",
-  "/explorar": "Explorar · OddysMedic",
+  "/explorar": "Tus mundos · OddysMedic",
+  [RUTA_MEDICINA_INTERNA]: "Medicina Interna · OddysMedic",
   "/progreso": "Tu progreso · OddysMedic",
   "/caso/elena": "Consulta por cansancio · OddysMedic",
   "/caso/elena/jugar": "Caso en curso: Consulta por cansancio · OddysMedic",
@@ -2972,6 +2990,10 @@ export default function App() {
   }
 
   if (window.location.pathname === "/explorar") {
+    return <WorldsPage />;
+  }
+
+  if (window.location.pathname === RUTA_MEDICINA_INTERNA) {
     return <ExplorePage />;
   }
 
