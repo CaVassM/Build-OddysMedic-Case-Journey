@@ -3109,19 +3109,20 @@ button.remember-head {
 
 .system-voice {
   padding: 26px 28px 28px;
-  border-left: 4px solid #2e2a78;
-  border-radius: 0 14px 14px 0;
+  border: 1px solid #e3e1f0;
+  border-radius: 14px;
   background: #f1f0fa;
 }
 .system-voice > header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 22px;
 }
 .system-voice > header .icon {
-  width: 28px;
-  height: 28px;
+  flex: none;
+  width: 18px;
+  height: 18px;
   color: #2e2a78;
 }
 .system-voice > header h2 {
