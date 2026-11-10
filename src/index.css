@@ -456,6 +456,11 @@ article.specialty-card .portrait {
   font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
+  transition: background-color 150ms var(--ease-out);
+}
+.territory-chip:focus-visible {
+  outline: 2px solid #2e2a78;
+  outline-offset: 2px;
 }
 .territory-chip > span {
   width: 8px;
@@ -551,82 +556,129 @@ article.specialty-card .portrait {
   .logged-nav a:not(.active):hover {
     background: #f4f3fb;
   }
+  .territory-chip:hover {
+    background: #f1f0fa;
+  }
 }
 .student-main {
   width: min(1200px, calc(100% - 64px));
   margin: 0 auto;
-  padding: 48px 0 96px;
+  padding: 32px 0 96px;
   display: grid;
   grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-  gap: 40px 48px;
+  gap: 24px 48px;
   align-items: start;
 }
-.home-hero {
+/* Saludo arriba, de lado a lado; a la izquierda el caso y los recientes, a la derecha las dos tarjetas. */
+.home-greeting {
   grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px 32px;
 }
 .home-greeting h1 {
   margin: 0;
   font-family: "Bricolage Grotesque", sans-serif;
-  font-size: 40px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1.05;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 .home-greeting p {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: #5d5b7a;
-  font-size: 18px;
+  font-size: 15px;
 }
-/* «Mundo actual»: dónde estás en Mundo → Territorio → Misión, con tu avance. */
-.mundo-actual {
+.student-main > .next-case-card {
+  grid-column: 1;
+}
+.student-main > .recent-cases {
+  grid-column: 1;
+}
+.student-side {
+  grid-column: 2;
+  grid-row: 2 / span 2;
+  display: grid;
+  gap: 24px;
+}
+/* «Tu recorrido»: dónde vas en el territorio actual, una misión por punto. */
+.recorrido-cabecera {
   display: flex;
-  flex: 0 1 360px;
   align-items: center;
-  gap: 16px;
-  min-width: 0;
-  padding: 16px 20px;
-  border: 1px solid #e3e1f0;
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(26, 24, 64, 0.06);
+  gap: 14px;
 }
-.mundo-actual-isla {
+.recorrido-isla {
   display: block;
   flex: none;
-  width: 56px;
+  width: 48px;
 }
-.mundo-actual-body {
-  min-width: 0;
-  flex: 1;
-}
-.mundo-actual-ruta {
+.recorrido h2 {
   margin: 0;
-  color: #1a1840;
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.3;
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
-.mundo-actual-avance {
-  margin: 2px 0 8px;
+.ruta-niveles {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  color: #5d5b7a;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.ruta-niveles li + li::before {
+  content: "›";
+  content: "›" / "";
+  margin: 0 8px;
+}
+.ruta-niveles li:last-child {
+  color: #1a1840;
+  font-weight: 700;
+}
+.recorrido-puntos {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 22px 0 0;
+  padding: 0 2px;
+  list-style: none;
+}
+/* La ruta punteada va por detrás; cada punto la tapa. */
+.recorrido-puntos::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  left: 8px;
+  height: 2px;
+  margin-top: -1px;
+  background: repeating-linear-gradient(90deg, #43d6be 0 4px, transparent 4px 10px);
+}
+.recorrido-punto {
+  position: relative;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #e3e1f0;
+}
+.recorrido-punto.hecha {
+  background: #43d6be;
+}
+.recorrido-punto.actual {
+  border: 4px solid #2e2a78;
+  background: #fff;
+}
+.recorrido-avance {
+  margin: 16px 0 0;
   color: #5d5b7a;
   font-size: 14px;
 }
-.mundo-actual-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  color: #2e2a78;
-  font-size: 15px;
-  font-weight: 700;
-}
-.mundo-actual-link:hover {
-  text-decoration: underline;
+.recorrido .progress-link-wrap {
+  margin-top: 20px;
+  padding-top: 20px;
 }
 .next-case-card {
   position: relative;
@@ -722,7 +774,7 @@ article.specialty-card .portrait {
   line-height: 1.45;
 }
 .recent-cases {
-  margin-top: 64px;
+  margin-top: 40px;
 }
 .recent-cases h2 {
   font-size: 30px;
@@ -3689,6 +3741,12 @@ button.remember-head {
   .student-main {
     grid-template-columns: minmax(0, 1fr);
   }
+  .student-main > .next-case-card,
+  .student-main > .recent-cases,
+  .student-side {
+    grid-column: 1;
+    grid-row: auto;
+  }
   .metric-pair {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3826,12 +3884,6 @@ button.remember-head {
     padding: 38px 0 60px;
     gap: 32px;
   }
-  .home-greeting h1 {
-    font-size: 36px;
-  }
-  .mundo-actual {
-    flex-basis: 100%;
-  }
   .next-case-card > .portrait {
     top: 20px;
     right: 18px;
@@ -3850,7 +3902,7 @@ button.remember-head {
     margin: 0 21px;
   }
   .recent-cases {
-    margin-top: 31px;
+    margin-top: 8px;
   }
   .case-intro {
     width: min(100% - 32px, 1200px);

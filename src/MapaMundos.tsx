@@ -247,7 +247,7 @@ function IconoIsla({ icono, c, k }: { icono: IslaIcono; c: string; k: string }) 
   }
 }
 
-// El dibujo de una isla. Se exporta para la tarjeta «Mundo actual» de /inicio.
+// El dibujo de una isla. Se exporta para la tarjeta «Tu recorrido» de /inicio.
 export function Isla({ estado, icono }: { estado: IslaDato["estado"]; icono: IslaIcono }) {
   const t = tonos[estado];
   return (

@@ -335,10 +335,10 @@ function LoggedTopbar({ current }: { current?: "inicio" | "explorar" | "progreso
           ))}
         </nav>
         <div className="topbar-right">
-          <span className="territory-chip">
+          <a className="territory-chip" href={RUTA_ENDOCRINOLOGIA}>
             <span aria-hidden="true" />
             Endocrinología
-          </span>
+          </a>
           <AccountMenu />
         </div>
       </div>
@@ -493,33 +493,54 @@ function RecentCase({ title, patient, portrait, decisions, href, linkLabel }: Re
   );
 }
 
-// Cuántas misiones del catálogo ya tienen decisiones en el historial.
-function completedMissions(history: Decision[]) {
-  return missionCatalog.filter(({ key }) => history.some(({ caseName }) => caseName === key))
-    .length;
+// Una ruta de niveles («Medicina Interna › Endocrinología»): lista con el separador dibujado en
+// CSS, así el texto accesible no lleva comas ni «›» sueltos y no hay que armar cadenas a mano.
+function RutaNiveles({ niveles }: { niveles: string[] }) {
+  return (
+    <ol className="ruta-niveles">
+      {niveles.map((nivel) => (
+        <li key={nivel}>{nivel}</li>
+      ))}
+    </ol>
+  );
 }
 
-// Dónde estás en la jerarquía Mundo → Territorio → Misión, con su avance real.
-function MundoActual({ completadas, total }: { completadas: number; total: number }) {
+// Dónde vas en el territorio actual: una misión por punto, en el orden del catálogo.
+function TuRecorrido({ history }: { history: Decision[] }) {
+  const total = missionCatalog.length;
+  const completadas = missionCatalog.filter(({ key }) =>
+    history.some(({ caseName }) => caseName === key),
+  ).length;
+  // Los puntos cuentan avance, no posición en el catálogo: primero las completadas, luego la actual.
+  const estado = (index: number) =>
+    index < completadas ? "hecha" : index === completadas ? "actual" : "pendiente";
+  const etiquetas = { hecha: "completada", actual: "actual", pendiente: "pendiente" };
+  const nombres = missionCatalog.map(
+    (_, index) => `Misión ${index + 1} de ${total}: ${etiquetas[estado(index)]}`,
+  );
   return (
-    <section aria-label="Tu mundo actual" className="mundo-actual">
-      <span className="mundo-actual-isla">
-        <Isla estado={MUNDO_ACTUAL.estado} icono={MUNDO_ACTUAL.icono} />
-      </span>
-      <div className="mundo-actual-body">
-        <p className="mundo-actual-ruta">
-          {MUNDO_ACTUAL.nombre}
-          <span aria-hidden="true"> › </span>
-          <span className="sr-only">, </span>
-          {TERRITORIO_ACTUAL.nombre}
-        </p>
-        <p className="mundo-actual-avance">
-          {completadas} de {total} {total === 1 ? "misión" : "misiones"}
-        </p>
-        <div aria-hidden="true" className="progress-track">
-          <span style={{ width: `${(completadas / total) * 100}%` }} />
+    <section aria-labelledby="recorrido-titulo" className="recorrido card">
+      <div className="recorrido-cabecera">
+        <span aria-hidden="true" className="recorrido-isla">
+          <Isla estado={TERRITORIO_ACTUAL.estado} icono={TERRITORIO_ACTUAL.icono} />
+        </span>
+        <div>
+          <h2 id="recorrido-titulo">Tu recorrido</h2>
+          <RutaNiveles niveles={[MUNDO_ACTUAL.nombre, TERRITORIO_ACTUAL.nombre]} />
         </div>
-        <a className="mundo-actual-link" href={RUTA_MUNDOS}>
+      </div>
+      <ol aria-label="Misiones del territorio" className="recorrido-puntos">
+        {nombres.map((nombre, index) => (
+          <li className={`recorrido-punto ${estado(index)}`} key={index}>
+            <span className="sr-only">{nombre}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="recorrido-avance">
+        {completadas} de {total} {total === 1 ? "misión" : "misiones"}
+      </p>
+      <div className="progress-link-wrap">
+        <a className="progress-link" href={RUTA_MEDICINA_INTERNA}>
           Ver mapa
           <ArrowRightIcon />
         </a>
@@ -564,76 +585,67 @@ function StudentHome() {
     <div className="student-page">
       <LoggedTopbar current="inicio" />
       <main className="student-main">
-        <div className="home-hero">
-          <div className="home-greeting">
-            <h1>Hola, Bruno</h1>
-            <p>Sigue donde lo dejaste.</p>
-          </div>
-          <MundoActual completadas={completedMissions(history)} total={missionCatalog.length} />
+        <div className="home-greeting">
+          <h1>Hola, Bruno</h1>
+          <p>Sigue donde lo dejaste.</p>
         </div>
-        <section className="student-left">
-          <article className="next-case-card">
-            <div className="next-case-orbit orbit-one" />
-            <div className="next-case-orbit orbit-two" />
-            <Portrait patient={recommended ? recommended.patient : "Elena"} />
-            <div className="next-case-main">
-              <span className="next-case-label">Tu siguiente caso</span>
-              <h2>{recommended ? recommended.title : "Consulta por cansancio"}</h2>
-              <p>
-                {recommended
-                  ? recommended.line
-                  : "Elena, 68 años. Endocrinología. Tres paradas, unos 6 minutos."}
-              </p>
-              <MiniRoute />
-              {recommended ? (
-                <span className="next-case-soon">Disponible muy pronto</span>
-              ) : (
-                <a className="button-link next-case-button" href="/caso/elena">
-                  Empezar caso
-                </a>
-              )}
-            </div>
-            <div className="case-rationale">
-              <svg viewBox="0 0 32 32" aria-hidden="true">
-                <circle
-                  cx="16"
-                  cy="16"
-                  r="13"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                />
-                <path d="m16 6 3.7 10-3.7 7-3.7-7L16 6Z" fill="currentColor" />
-                <path d="m16 6 3.7 10-3.7-2.1V6Z" fill="#43D6BE" />
-              </svg>
-              <p>
-                {recommended
-                  ? recommended.reason
-                  : "Lo elegimos porque aún no tenemos evidencia de cómo interpretas pruebas tiroideas."}
-              </p>
-            </div>
-          </article>
-          <section className="recent-cases">
-            <h2>Casos recientes</h2>
-            <div className="recent-case-list">
-              {recentCases.map(({ key, ...recentCase }) => (
-                <RecentCase key={key} {...recentCase} />
-              ))}
-            </div>
-          </section>
-        </section>
-        <aside className="competencies-card card">
-          <h2>Tus competencias</h2>
-          {homeCompetencies.map((competency) => (
-            <Competency competency={competency} key={competency.id} />
-          ))}
-          <div className="progress-link-wrap">
-            <a className="progress-link" href="/progreso">
-              Ver todo mi progreso
-              <ArrowRightIcon />
-            </a>
+        <article className="next-case-card">
+          <div className="next-case-orbit orbit-one" />
+          <div className="next-case-orbit orbit-two" />
+          <Portrait patient={recommended ? recommended.patient : "Elena"} />
+          <div className="next-case-main">
+            <span className="next-case-label">Tu siguiente caso</span>
+            <h2>{recommended ? recommended.title : "Consulta por cansancio"}</h2>
+            <p>
+              {recommended
+                ? recommended.line
+                : "Elena, 68 años. Endocrinología. Tres paradas, unos 6 minutos."}
+            </p>
+            <MiniRoute />
+            {recommended ? (
+              <span className="next-case-soon">Disponible muy pronto</span>
+            ) : (
+              <a className="button-link next-case-button" href="/caso/elena">
+                Empezar caso
+              </a>
+            )}
           </div>
-        </aside>
+          <div className="case-rationale">
+            <svg viewBox="0 0 32 32" aria-hidden="true">
+              <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" strokeWidth="1.7" />
+              <path d="m16 6 3.7 10-3.7 7-3.7-7L16 6Z" fill="currentColor" />
+              <path d="m16 6 3.7 10-3.7-2.1V6Z" fill="#43D6BE" />
+            </svg>
+            <p>
+              {recommended
+                ? recommended.reason
+                : "Lo elegimos porque aún no tenemos evidencia de cómo interpretas pruebas tiroideas."}
+            </p>
+          </div>
+        </article>
+        <div className="student-side">
+          <aside className="competencies-card card">
+            <h2>Tus competencias</h2>
+            {homeCompetencies.map((competency) => (
+              <Competency competency={competency} key={competency.id} />
+            ))}
+            <div className="progress-link-wrap">
+              <a className="progress-link" href="/progreso">
+                Ver todo mi progreso
+                <ArrowRightIcon />
+              </a>
+            </div>
+          </aside>
+          <TuRecorrido history={history} />
+        </div>
+        <section className="recent-cases">
+          <h2>Casos recientes</h2>
+          <div className="recent-case-list">
+            {recentCases.map(({ key, ...recentCase }) => (
+              <RecentCase key={key} {...recentCase} />
+            ))}
+          </div>
+        </section>
         <DevDataToggle />
       </main>
     </div>
